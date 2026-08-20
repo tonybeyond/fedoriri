@@ -85,6 +85,7 @@ if [ "$USE_PODMAN" -eq 1 ]; then
     "registry.fedoraproject.org/fedora:${RELEASE}" \
     bash -c "dnf install -y --setopt=install_weak_deps=False \
                lorax pykickstart createrepo_c xorriso dnf-plugins-core rsync \
+               zstd mtools isomd5sum \
              && ./iso/build-iso.sh $( [ "$SKIP_POOL" -eq 1 ] && printf -- '--skip-pool' )"
 fi
 
@@ -260,10 +261,8 @@ assemble_iso() {
   # utilisent les configs du système de fichiers ISO, éditées normalement.
   local efi_flag=()
   if ! losetup --find >/dev/null 2>&1; then
-    warn "pas de périphérique loop (conteneur ?) → --skip-mkefiboot :
-l'ISO s'installera normalement en VM/CD et en BIOS, mais un boot UEFI depuis
-une CLÉ USB démarrerait l'installateur SANS kickstart. Pour une clé USB UEFI,
-builder sur une machine disposant de /dev/loop."
+    warn "pas de périphérique loop (conteneur ?) → --skip-mkefiboot, puis
+patch mtools de l'image EFI embarquée (voir patch_embedded_efiboot)."
     efi_flag=(--skip-mkefiboot)
   fi
 
@@ -294,6 +293,10 @@ sys.exit(mkksiso.main())
 PYEOF
   fi
 
+  if [ "${#efi_flag[@]}" -gt 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+    patch_embedded_efiboot
+  fi
+
   if [ "$DRY_RUN" -eq 0 ]; then
     # Nom de fichier relatif dans le .sha256 : vérifiable où que l'ISO soit
     # copiée (sha256sum -c échoue sinon sur le chemin absolu de la machine
@@ -301,6 +304,48 @@ PYEOF
     ( cd "$(dirname "$OUT_ISO")" && sha256sum "$(basename "$OUT_ISO")" | tee "$(basename "$OUT_ISO").sha256" )
   fi
   log "ISO produite : $OUT_ISO"
+}
+
+# ---------------------------------------------------------------------------
+# Patch de l'image EFI embarquée après --skip-mkefiboot.
+#
+# Constaté en réel (extraction mtools sur l'ISO produite) : le grub.cfg
+# CONTENU dans l'image El Torito UEFI (efiboot.img) est le menu complet
+# amont, sans inst.ks — il ne chaîne PAS vers le grub.cfg édité du système
+# de fichiers ISO. Donc avec --skip-mkefiboot seul, tout boot UEFI (CD ou
+# clé USB) ouvre un installateur INTERACTIF : le kickstart est perdu, seule
+# la voie BIOS reste automatisée.
+#
+# Remède sans /dev/loop ni montage : mtools écrit directement dans l'image
+# FAT. L'image est un extent contigu de l'ISO → on l'extrait par dd, on y
+# recopie le grub.cfg édité (mcopy), on la réécrit en place (dd conv=notrunc,
+# taille inchangée), puis on réimplante le md5 de média (invalidé par la
+# réécriture) pour que « Test this media » reste fiable.
+# ---------------------------------------------------------------------------
+patch_embedded_efiboot() {
+  require_cmd mcopy mtype implantisomd5 dd
+  local report blocks512 lba img="$BUILD_DIR/efiboot-patch.img" cfg="$BUILD_DIR/efi-grub-edited.cfg"
+
+  report="$(xorriso -indev "$OUT_ISO" -report_el_torito plain 2>/dev/null)"
+  # Ligne : « El Torito boot img :  2  UEFI  y  none 0x0000 0x00 <blocs512> <LBA2048> »
+  read -r blocks512 lba <<<"$(awk '/El Torito boot img[[:space:]]*:[[:space:]]*[0-9]+[[:space:]]+UEFI/ {print $(NF-1), $NF; exit}' <<<"$report")"
+  [ -n "${lba:-}" ] || die "entrée El Torito UEFI introuvable dans $OUT_ISO"
+  log "patch de l'image EFI embarquée (LBA $lba, $blocks512 blocs de 512)…"
+
+  dd if="$OUT_ISO" of="$img" bs=512 skip=$((lba * 4)) count="$blocks512" status=none
+  rm -f "$cfg"
+  osirrox -indev "$OUT_ISO" -extract /EFI/BOOT/grub.cfg "$cfg" 2>/dev/null
+  chmod u+w "$cfg"
+  grep -q 'inst\.ks=' "$cfg" || die "le grub.cfg du système de fichiers ISO ne contient pas inst.ks — édition mkksiso absente ?"
+  mcopy -o -i "$img" "$cfg" ::/EFI/BOOT/grub.cfg \
+    || die "mcopy a échoué (image FAT pleine ou structure inattendue)"
+  # Vérification : le menu embarqué porte bien le kickstart maintenant.
+  mtype -i "$img" ::/EFI/BOOT/grub.cfg | grep -q 'inst\.ks=' \
+    || die "vérification post-patch échouée : inst.ks absent du grub.cfg embarqué"
+  dd if="$img" of="$OUT_ISO" bs=512 seek=$((lba * 4)) count="$blocks512" conv=notrunc status=none
+  implantisomd5 --force "$OUT_ISO" >/dev/null
+  rm -f "$img" "$cfg"
+  log "image EFI embarquée patchée : le boot UEFI porte le kickstart ✔"
 }
 
 fetch_and_verify_upstream

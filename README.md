@@ -27,9 +27,10 @@ assembler des fichiers x86_64, rien n'est exécuté dans cette architecture.
 Outils nécessaires :
 
 ```bash
-# openssl : requis par iso/set-secrets.sh (hash du mot de passe) — présent
-# d'office sur la plupart des Fedora, listé par sécurité.
-sudo dnf install -y lorax pykickstart createrepo_c xorriso dnf-plugins-core rsync openssl
+# openssl : requis par iso/set-secrets.sh (hash du mot de passe).
+# zstd : décompression du comps ; mtools + isomd5sum : patch de l'image EFI
+# embarquée quand l'hôte de build n'a pas de /dev/loop (conteneur LXC).
+sudo dnf install -y lorax pykickstart createrepo_c xorriso dnf-plugins-core rsync openssl zstd mtools isomd5sum
 ```
 
 (Pas de Fedora sous la main ? `./iso/build-iso.sh --podman` fait tout dans un

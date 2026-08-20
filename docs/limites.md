@@ -95,6 +95,15 @@ contournée en silence. « Vérifié » = constaté sur source primaire ;
   réelles (xorriso/mkefiboot/implantisomd5, toutes indépendantes de l'arch
   hôte ; l'amont marque lui-même ce contrôle d'un TODO). Sur hôte x86_64,
   mkksiso est appelé tel quel, contrôle inclus.
+- **Build sans /dev/loop** (conteneur LXC) : `mkefiboot` ne peut pas tourner
+  → `--skip-mkefiboot`. Constaté en réel : le grub.cfg CONTENU dans l'image
+  El Torito UEFI est alors le menu amont sans `inst.ks` (il ne chaîne pas
+  vers la config éditée de l'ISO) — tout boot UEFI perdait le kickstart,
+  seul le boot BIOS restait automatisé. build-iso.sh patche donc l'image
+  FAT embarquée avec mtools (sans loop ni montage), vérifie la présence
+  d'`inst.ks` dans le résultat, et réimplante le md5 de média
+  (`patch_embedded_efiboot`). Sur hôte avec loop, `mkefiboot` fait le
+  travail normalement.
 
 ## VA-API
 
