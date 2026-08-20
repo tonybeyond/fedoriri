@@ -51,6 +51,12 @@ for home in /home/*; do
   id "$u" >/dev/null 2>&1 || continue
   cp -a /etc/skel/. "$home/"
   chown -R "$u:$(id -gn "$u")" "$home"
+  # ⚠️ cp -a préserve le contexte SELinux SOURCE (celui du payload) : sur un
+  # home, un mauvais label rend le répertoire inaccessible en enforcing
+  # (« change directory failed: Permission denied », constaté au test n°3).
+  # Ce %post tourne APRÈS le ré-étiquetage final d'anaconda, donc on
+  # ré-étiquette nous-mêmes selon la policy (user_home_dir_t/user_home_t).
+  restorecon -RF "$home" 2>/dev/null || true
 done
 
 # Rendre les scripts appelables.
