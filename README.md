@@ -19,16 +19,58 @@ ISO netinst Fedora vérifiée (GPG+sha256)
 
 ## Construction
 
-Voir [iso/README.md](iso/README.md). Résumé :
+Détails et alternatives dans [iso/README.md](iso/README.md). Pas à pas :
+
+**0. Où builder.** Sur une machine ou VM **Fedora 44** — une VM aarch64
+(UTM sur Apple Silicon) convient : le build ne fait que télécharger et
+assembler des fichiers x86_64, rien n'est exécuté dans cette architecture.
+Outils nécessaires :
 
 ```bash
-openssl passwd -6 'mot-de-passe'   # → remplacer les 2 placeholders CHANGEME_*
-./iso/build-iso.sh                 # sur Fedora 44 (ou --podman ailleurs)
+sudo dnf install -y lorax pykickstart createrepo_c xorriso dnf-plugins-core rsync
 ```
 
-Le build **refuse** de partir si les placeholders (hash utilisateur, phrase
-LUKS) n'ont pas été remplacés, si la signature GPG Fedora du CHECKSUM est
-invalide, ou si le sha256 de l'ISO amont ne correspond pas.
+(Pas de Fedora sous la main ? `./iso/build-iso.sh --podman` fait tout dans un
+conteneur `fedora:44`.)
+
+**1. Poser les deux secrets du kickstart** (le build refuse de partir tant
+qu'ils sont aux valeurs placeholder) :
+
+```bash
+./iso/set-secrets.sh
+```
+
+Le script demande, sans écho ni trace dans l'historique :
+- le **mot de passe de l'utilisateur `fedo`** → stocké sous forme de hash
+  SHA-512 dans `iso/includes/10-base.ks` (à la main :
+  `openssl passwd -6`, coller à la place de `CHANGEME_PASSWORD_HASH_SHA512`) ;
+- la **phrase de passe LUKS**, celle qui sera demandée à chaque démarrage —
+  stockée **en clair** dans `iso/includes/20-partitioning.ks` (placeholder
+  `CHANGEME_LUKS_PASSPHRASE`) : c'est anaconda qui chiffrera le disque avec.
+
+Ne commitez jamais ces deux fichiers une fois remplis
+(`git restore iso/includes/` pour revenir aux placeholders).
+
+**2. Vérifier puis construire :**
+
+```bash
+bash tests/run-local-checks.sh
+```
+
+```bash
+sudo ./iso/build-iso.sh
+```
+
+(`sudo` : le pool local de RPM passe par `dnf --installroot`.)
+
+**3. Résultat :** `iso/build/fedoriri-44-x86_64.iso` (+ son `.sha256`).
+Prévoir ~25 Go libres et une bonne connexion (netinst + ~3 Go de RPM).
+
+Garde-fous intégrés — le build **échoue volontairement** si : les placeholders
+n'ont pas été remplacés ; la signature GPG Fedora du fichier CHECKSUM est
+invalide ; le sha256 de l'ISO amont ne correspond pas. Et l'ISO produite
+contient vos secrets : ne la diffusez pas, changez la phrase LUKS après
+installation (`cryptsetup luksChangeKey`).
 
 ## Décisions structurantes (et leur pourquoi)
 

@@ -26,23 +26,48 @@ une ISO d'installation, sans tordre l'outil.
 
 ## Utilisation
 
+### 1. Poser les secrets
+
+Le kickstart contient deux placeholders, et `build-iso.sh` **refuse de
+construire** tant qu'ils sont en place. Le plus simple :
+
 ```bash
-# 1. Remplacer les placeholders (le build REFUSE sinon) :
-#    - hash du mot de passe :
-openssl passwd -6 'votre-mot-de-passe'
-#      → coller dans includes/10-base.ks (CHANGEME_PASSWORD_HASH_SHA512)
-#    - phrase LUKS : includes/20-partitioning.ks (CHANGEME_LUKS_PASSPHRASE)
-
-# 2. Construire (sur Fedora 44) :
-./build-iso.sh
-#    ou depuis un autre OS avec podman :
-./build-iso.sh --podman
-
-# 3. Résultat : build/fedoriri-44-x86_64.iso (+ .sha256)
+./set-secrets.sh
 ```
 
-`--skip-pool` accélère les itérations (pas de pool local : l'installation
-exigera alors le réseau).
+(interactif, sans écho). Ce qu'il remplit, si vous préférez le faire à la
+main :
+
+| Placeholder | Fichier | Contenu attendu |
+|---|---|---|
+| `CHANGEME_PASSWORD_HASH_SHA512` | `includes/10-base.ks` | le **hash** du mot de passe de `fedo`, produit par `openssl passwd -6` (jamais le mot de passe en clair : la ligne `user --iscrypted` attend un hash) |
+| `CHANGEME_LUKS_PASSPHRASE` | `includes/20-partitioning.ks` | la phrase LUKS **en clair** (pas un hash) — anaconda s'en sert pour chiffrer le disque ; c'est elle qui sera demandée à chaque démarrage |
+
+Ne commitez jamais ces fichiers une fois remplis
+(`git restore iso/includes/` pour revenir aux placeholders).
+
+### 2. Construire
+
+Sur Fedora 44 (VM aarch64 acceptée : rien d'x86 n'est exécuté au build) :
+
+```bash
+sudo ./build-iso.sh
+```
+
+Depuis un autre OS, sans VM Fedora :
+
+```bash
+./build-iso.sh --podman
+```
+
+Options utiles : `--skip-pool` accélère les itérations en sautant le pool
+local de RPM (l'installation exigera alors le réseau) ; `--dry-run` montre
+les commandes sans les exécuter.
+
+### 3. Résultat
+
+`build/fedoriri-44-x86_64.iso` + son `.sha256`. Compter ~25 Go d'espace de
+travail et le téléchargement de la netinst (~800 Mo) + ~3 Go de RPM.
 
 ## Test en VM (test d'acceptation n°2)
 
