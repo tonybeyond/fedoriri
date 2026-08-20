@@ -218,8 +218,24 @@ assemble_iso() {
   # artefact d'un build précédent (c'est notre fichier, pas une donnée).
   run rm -f "$OUT_ISO"
 
+  # Sans périphérique loop (cas typique : conteneur LXC), mkefiboot ne peut
+  # pas reconstruire l'image efiboot embarquée → --skip-mkefiboot.
+  # Conséquence documentée (doc lorax) : seule l'image efiboot EMBARQUÉE
+  # garde son grub.cfg d'origine ; or elle ne sert qu'au boot UEFI depuis une
+  # CLÉ USB. Une ISO montée en CD/VM (Proxmox, virt-manager) ou un boot BIOS
+  # utilisent les configs du système de fichiers ISO, éditées normalement.
+  local efi_flag=()
+  if ! losetup --find >/dev/null 2>&1; then
+    warn "pas de périphérique loop (conteneur ?) → --skip-mkefiboot :
+l'ISO s'installera normalement en VM/CD et en BIOS, mais un boot UEFI depuis
+une CLÉ USB démarrerait l'installateur SANS kickstart. Pour une clé USB UEFI,
+builder sur une machine disposant de /dev/loop."
+    efi_flag=(--skip-mkefiboot)
+  fi
+
   # inst.repo pointe sur le pool local de l'ISO → installation sans réseau.
-  local mkksiso_args=(--ks "$FLAT_KS"
+  local mkksiso_args=("${efi_flag[@]}"
+                      --ks "$FLAT_KS"
                       --add "$BUILD_DIR/stage/fedoriri"
                       --cmdline "inst.repo=hd:LABEL=${label}:/fedoriri/repo"
                       "$UPSTREAM_ISO" "$OUT_ISO")
