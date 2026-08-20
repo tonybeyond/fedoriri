@@ -203,11 +203,35 @@ assemble_iso() {
   [ -n "$label" ] || die "impossible de lire l'étiquette de volume de l'ISO amont"
   log "étiquette de volume : $label"
 
+  # mkksiso refuse d'écraser une sortie existante : on purge un éventuel
+  # artefact d'un build précédent (c'est notre fichier, pas une donnée).
+  run rm -f "$OUT_ISO"
+
   # inst.repo pointe sur le pool local de l'ISO → installation sans réseau.
-  run mkksiso --ks "$FLAT_KS" \
-      --add "$BUILD_DIR/stage/fedoriri" \
-      --cmdline "inst.repo=hd:LABEL=${label}:/fedoriri/repo" \
-      "$UPSTREAM_ISO" "$OUT_ISO"
+  local mkksiso_args=(--ks "$FLAT_KS"
+                      --add "$BUILD_DIR/stage/fedoriri"
+                      --cmdline "inst.repo=hd:LABEL=${label}:/fedoriri/repo"
+                      "$UPSTREAM_ISO" "$OUT_ISO")
+  if [ "$(uname -m)" = "$ARCH" ]; then
+    run mkksiso "${mkksiso_args[@]}"
+  else
+    # Build croisé (ex. VM Fedora aarch64 → ISO x86_64) : mkksiso s'arrête sur
+    # « iso arch does not match the host arch » (CheckDiscinfo compare le
+    # .discinfo de l'ISO à uname -m, sans option de contournement). Or tout ce
+    # que mkksiso exécute — xorriso, mkefiboot, implantisomd5 — n'est que de
+    # la manipulation de fichiers, indépendante de l'arch hôte ; le code
+    # amont doute lui-même de l'utilité du contrôle (TODO dans
+    # pylorax/cmdline/mkksiso.py). On neutralise donc UNIQUEMENT ce contrôle,
+    # en appelant le même main() avec les mêmes arguments.
+    log "build croisé $(uname -m) → $ARCH : contrôle d'architecture de mkksiso neutralisé"
+    run python3 - "${mkksiso_args[@]}" <<'PYEOF'
+import sys
+from pylorax.cmdline import mkksiso
+mkksiso.CheckDiscinfo = lambda path: None
+sys.argv = ["mkksiso"] + sys.argv[1:]
+sys.exit(mkksiso.main())
+PYEOF
+  fi
 
   if [ "$DRY_RUN" -eq 0 ]; then
     sha256sum "$OUT_ISO" | tee "$OUT_ISO.sha256"
