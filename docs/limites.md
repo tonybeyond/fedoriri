@@ -112,3 +112,16 @@ contournée en silence. « Vérifié » = constaté sur source primaire ;
   AMD vient exclusivement de RPM Fusion (`mesa-va-drivers-freeworld`),
   installé au premier boot. Sans réseau au premier boot, le test n°10
   échouera jusqu'à la prochaine exécution de `post-install.sh`.
+
+## Piège pykickstart/ksflatten (cause racine des échecs de boot du test n°2)
+
+`ksflatten` n'aplatit pas seulement les `%include` : il **matérialise les
+défauts internes de pykickstart** pour les commandes absentes. Pour
+`bootloader`, ce défaut est `--location=none`, qu'anaconda interprète comme
+« ne pas installer de bootloader » (storage.log : « Bootloader is not
+enabled, skipping ») → la partition EFI est jugée inutile et sautée, grub
+n'est jamais installé, le système n'amorce ni en UEFI ni en BIOS. Prouvé le
+2026-08-20 par reproduction instrumentée (installateur avec inst.sshd, logs
+complets). Parades : commande `bootloader --location=mbr --timeout=1`
+explicite dans 10-base.ks + garde-fou de build qui refuse un kickstart
+aplati contenant `--location=none`.

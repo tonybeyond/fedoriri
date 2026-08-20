@@ -227,6 +227,12 @@ prepare_kickstart() {
     grep -q 'fedoriri-ignoredisk' "$FLAT_KS" \
       || die "le %pre de détection du disque manque dans le kickstart aplati"
     printf '\n%%include /tmp/fedoriri-ignoredisk.ks\n' >> "$FLAT_KS"
+    # Garde-fou : sans commande bootloader dans les sources, ksflatten émet
+    # le défaut pykickstart « --location=none » = PAS de bootloader installé
+    # (système non amorçable). La ligne explicite de 10-base.ks doit gagner.
+    if grep -q 'bootloader.*--location=none' "$FLAT_KS"; then
+      die "le kickstart aplati contient « bootloader --location=none » : la commande bootloader explicite a disparu de 10-base.ks"
+    fi
   fi
 }
 

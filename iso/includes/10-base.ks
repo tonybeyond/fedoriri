@@ -16,6 +16,15 @@ timezone Europe/Zurich --utc
 
 network --bootproto=dhcp --device=link --activate --onboot=yes --hostname=fedoriri
 
+# Bootloader EXPLICITE — ne jamais retirer cette ligne. Piège vérifié :
+# si la commande est absente, ksflatten matérialise le défaut interne de
+# pykickstart, « bootloader --location=none », qu'anaconda interprète comme
+# « ne pas installer de bootloader » → pas de partition EFI, pas de grub,
+# système non amorçable (cause racine des échecs de boot du test n°2,
+# prouvée dans storage.log : « Bootloader is not enabled, skipping »).
+# --location=mbr = emplacement par défaut (anaconda choisit ESP en UEFI).
+bootloader --location=mbr --timeout=1
+
 # Compte root verrouillé : tout passe par sudo (groupe wheel).
 rootpw --lock
 
