@@ -182,6 +182,17 @@ prepare_kickstart() {
   # `--version` doit suivre la release d'anaconda ; F44 est la plus récente
   # connue de pykickstart 3.69.
   run ksvalidator "$FLAT_KS" || die "kickstart invalide — build interrompu"
+  # L'ignoredisk est généré à l'exécution par le %pre de 20-partitioning.ks
+  # (détection du disque cible) : ksflatten/ksvalidator ne sauraient pas
+  # résoudre un %include vers un fichier qui n'existe pas encore, donc la
+  # ligne n'est ajoutée qu'ici, APRÈS validation. Position sans importance :
+  # les directives kickstart sont déclaratives, et anaconda exécute les %pre
+  # avant d'interpréter les directives — le fichier existera au bon moment.
+  if [ "$DRY_RUN" -eq 0 ]; then
+    grep -q 'fedoriri-ignoredisk' "$FLAT_KS" \
+      || die "le %pre de détection du disque manque dans le kickstart aplati"
+    printf '\n%%include /tmp/fedoriri-ignoredisk.ks\n' >> "$FLAT_KS"
+  fi
 }
 
 # ---------------------------------------------------------------------------
