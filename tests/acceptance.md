@@ -6,7 +6,7 @@ ou le poste cible — la procédure est donnée pour chacun.
 
 | # | Test | Bloquant | État | Comment (re)jouer |
 |---|------|----------|------|-------------------|
-| 1 | L'ISO se construit, checksum amont vérifié (GPG + sha256) | oui | **partiel** : logique implémentée et lue en revue ; le build complet exige Fedora/podman | `./iso/build-iso.sh` (ou `--podman`) — échoue volontairement si CHECKSUM non signé ou sha256 faux |
+| 1 | L'ISO se construit, checksum amont vérifié (GPG + sha256) | oui | **VALIDÉ** (2026-08-20, VM Fedora 44 aarch64, build croisé) : signature « Good signature from Fedora (44) », sha256 amont OK, pool de 1018 RPM, ISO finale 2,3 Go + .sha256 | `sudo ./iso/build-iso.sh` — échoue volontairement si CHECKSUM non signé ou sha256 faux |
 | 2 | Installation non interactive complète en VM, LUKS compris | oui | **non exécuté ici** | `virt-install --name fedoriri --memory 4096 --disk size=40 --cdrom iso/build/fedoriri-44-x86_64.iso --os-variant fedora-unknown` puis vérifier `lsblk -f` (crypto_LUKS) et la connexion auto de `fedo` |
 | 3 | Niri démarre, session utilisable au clavier | oui | **non exécuté ici** | dans la VM : tty1 → autologin → niri ; `Mod+Shift+Slash` affiche l'aide |
 | 4 | xwayland-satellite tourne, xeyes s'affiche | oui | **non exécuté ici** | `journalctl --user -u niri -b \| grep "X11 socket"` puis `DISPLAY=:0 xeyes` (niri ≥ 25.08 le lance à la demande) |
