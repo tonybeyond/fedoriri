@@ -35,8 +35,9 @@ construire** tant qu'ils sont en place. Le plus simple :
 ./set-secrets.sh
 ```
 
-(interactif, sans écho). Ce qu'il remplit, si vous préférez le faire à la
-main :
+(interactif, sans écho ; requiert `openssl` — inclus dans la ligne
+d'installation des prérequis du README racine). Ce qu'il remplit, si vous
+préférez le faire à la main :
 
 | Placeholder | Fichier | Contenu attendu |
 |---|---|---|
