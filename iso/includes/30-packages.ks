@@ -16,6 +16,26 @@
 @standard
 @hardware-support
 
+# --- Noyau, bootloader, langues ---------------------------------------------
+# Anaconda ajoute ces paquets LUI-MÊME à la transaction (ils ne viennent ni
+# de @core ni du reste de la liste) : sans eux dans le pool local, une
+# installation hors ligne échoue avec « No match for argument: grub2-efi-x64,
+# shim-x64, … » — constaté au test n°2. Les déclarer ici les fait entrer
+# dans la fermeture de dépendances du pool.
+kernel
+linux-firmware
+grub2-pc
+grub2-pc-modules
+grub2-efi-x64
+shim-x64
+efibootmgr
+grub2-tools
+grub2-tools-extra
+grubby
+# glibc-langpack-* : exigés par la conf locale (lang en_US + formats fr_CH).
+glibc-langpack-en
+glibc-langpack-fr
+
 # --- Compositeur et session -------------------------------------------------
 niri
 # niri >= 25.08 lance xwayland-satellite automatiquement (à la demande) s'il

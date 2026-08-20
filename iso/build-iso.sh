@@ -151,7 +151,11 @@ build_package_pool() {
   if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
     die "cette étape exige root : relancez avec sudo ./iso/build-iso.sh"
   fi
-  tmproot="$(mktemp -d)"
+  # Installroot PERSISTANT : le cache libdnf5 qu'il contient évite de
+  # retélécharger ~1 Go de RPM à chaque build (seuls les paquets nouveaux ou
+  # mis à jour sont récupérés).
+  tmproot="$BUILD_DIR/dnf-installroot"
+  mkdir -p "$tmproot"
   # --installroot vide : dnf calcule la fermeture COMPLÈTE (comme anaconda),
   # pas seulement les paquets manquants sur l'hôte de build.
   # dnf5 n'accepte ni --downloaddir ni --destdir pour `install` (--destdir
@@ -168,9 +172,23 @@ build_package_pool() {
     [ -n "$(find "$pool" -name '*.rpm' | head -1)" ] \
       || die "aucun RPM récupéré depuis le cache libdnf5 ($tmproot) — chemin de cache inattendu ?"
   fi
-  run rm -rf "$tmproot"
-  run createrepo_c --update "$pool"
-  log "pool local prêt : $(find "$pool" -name '*.rpm' 2>/dev/null | wc -l | tr -d ' ') RPM"
+  # Métadonnées de groupes (comps) : sans elles, anaconda ne sait pas
+  # résoudre @core/@standard/@hardware-support depuis le pool local
+  # (« No match for argument: core », constaté au test n°2). On réutilise le
+  # comps OFFICIEL du dépôt Fedora Everything — le même que celui avec lequel
+  # dnf a résolu la fermeture ci-dessus, donc les membres mandatory/default
+  # des groupes sont bien dans le pool.
+  local os_base="https://download.fedoraproject.org/pub/fedora/linux/releases/${RELEASE}/Everything/${ARCH}/os"
+  local comps="$BUILD_DIR/comps-f${RELEASE}.xml" comps_href
+  if [ ! -s "$comps" ]; then
+    comps_href="$(curl -fsSL "$os_base/repodata/repomd.xml" \
+                  | grep -oE 'href="repodata/[^"]*comps[^"]*\.xml"' | head -1 \
+                  | sed -E 's/^href="(.*)"$/\1/')"
+    [ -n "$comps_href" ] || die "fichier comps introuvable dans le repomd.xml du miroir"
+    run curl -fsSL -o "$comps" "$os_base/$comps_href"
+  fi
+  run createrepo_c --update --groupfile "$comps" "$pool"
+  log "pool local prêt : $(find "$pool" -name '*.rpm' 2>/dev/null | wc -l | tr -d ' ') RPM (+ groupes comps)"
 }
 
 # ---------------------------------------------------------------------------
