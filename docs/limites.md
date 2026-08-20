@@ -88,6 +88,13 @@ contournée en silence. « Vérifié » = constaté sur source primaire ;
 - Le pool local couvre la fermeture de dépendances du `%packages` ; un
   `dnf upgrade` ultérieur et le premier boot (Citrix, Shadow, RPM Fusion)
   exigent le réseau.
+- **Build croisé** (hôte aarch64 → ISO x86_64, constaté sur VM UTM) : le
+  contrôle « iso arch does not match the host arch » de mkksiso est
+  neutralisé par build-iso.sh dans ce cas précis — c'est une simple
+  comparaison du `.discinfo` avec `uname -m`, sans effet sur les opérations
+  réelles (xorriso/mkefiboot/implantisomd5, toutes indépendantes de l'arch
+  hôte ; l'amont marque lui-même ce contrôle d'un TODO). Sur hôte x86_64,
+  mkksiso est appelé tel quel, contrôle inclus.
 
 ## VA-API
 
