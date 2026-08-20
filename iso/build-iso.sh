@@ -154,12 +154,20 @@ build_package_pool() {
   tmproot="$(mktemp -d)"
   # --installroot vide : dnf calcule la fermeture COMPLÈTE (comme anaconda),
   # pas seulement les paquets manquants sur l'hôte de build.
-  # --destdir et non --downloaddir : dnf5 (Fedora 41+) a renommé l'option.
+  # dnf5 n'accepte ni --downloaddir ni --destdir pour `install` (--destdir
+  # n'existe que pour download/reposync/upgrade, et `download` ne sait pas
+  # résoudre les groupes @core…) : avec --downloadonly les RPM restent dans
+  # le cache libdnf5 de l'installroot, d'où on les récupère ensuite.
   # shellcheck disable=SC2086  # $pkgs doit être éclaté en mots
   run dnf -y --installroot="$tmproot" --releasever="$RELEASE" --forcearch="$ARCH" \
-      --use-host-config \
-      install --downloadonly --destdir="$pool" \
+      --use-host-config --setopt=keepcache=1 \
+      install --downloadonly \
       @core @standard @hardware-support $pkgs
+  if [ "$DRY_RUN" -eq 0 ]; then
+    find "$tmproot/var/cache/libdnf5" -name '*.rpm' -exec cp -n {} "$pool/" \;
+    [ -n "$(find "$pool" -name '*.rpm' | head -1)" ] \
+      || die "aucun RPM récupéré depuis le cache libdnf5 ($tmproot) — chemin de cache inattendu ?"
+  fi
   run rm -rf "$tmproot"
   run createrepo_c --update "$pool"
   log "pool local prêt : $(find "$pool" -name '*.rpm' 2>/dev/null | wc -l | tr -d ' ') RPM"
