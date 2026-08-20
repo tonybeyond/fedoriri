@@ -49,13 +49,15 @@ for home in /home/*; do
   [ -d "$home" ] || continue
   u="$(basename "$home")"
   id "$u" >/dev/null 2>&1 || continue
-  cp -a /etc/skel/. "$home/"
+  # --no-preserve=context : NE PAS recopier le contexte SELinux du payload.
+  # Sinon les fichiers héritent d'un mauvais label et le home devient
+  # inaccessible en enforcing (« change directory failed: Permission denied »,
+  # constaté au test n°3). Sans ce contexte, la transition de type de la
+  # policy attribue le bon label (user_home_t) au moment de la création.
+  cp -a --no-preserve=context /etc/skel/. "$home/"
   chown -R "$u:$(id -gn "$u")" "$home"
-  # ⚠️ cp -a préserve le contexte SELinux SOURCE (celui du payload) : sur un
-  # home, un mauvais label rend le répertoire inaccessible en enforcing
-  # (« change directory failed: Permission denied », constaté au test n°3).
-  # Ce %post tourne APRÈS le ré-étiquetage final d'anaconda, donc on
-  # ré-étiquette nous-mêmes selon la policy (user_home_dir_t/user_home_t).
+  # Ceinture et bretelles : ce %post tourne APRÈS le ré-étiquetage final
+  # d'anaconda, donc on ré-étiquette explicitement (sans effet si déjà bon).
   restorecon -RF "$home" 2>/dev/null || true
 done
 
