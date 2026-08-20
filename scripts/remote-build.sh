@@ -48,23 +48,30 @@ SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$BUILD_HOST")
 log "connexion à $BUILD_HOST…"
 "${SSH[@]}" true || die "SSH inaccessible ($BUILD_HOST avec $SSH_KEY)"
 
-# Mise à jour du dépôt sur le LXC. Si un commit entrant touche iso/includes/
-# (où vivent les secrets locaux), on s'arrête au lieu d'écraser/conflicter.
+# Mise à jour du dépôt sur le LXC. Les secrets vivent dans des fichiers
+# suivis mais modifiés localement (iso/includes/10-base.ks et
+# 20-partitioning.ks) : on ne bloque que si un commit entrant touche UN DE
+# CES fichiers-là précisément — un commit sur d'autres fichiers d'includes
+# (ex. 30-packages.ks) fusionne sans risque à côté de modifications locales
+# non recouvrantes.
 log "git pull sur le LXC…"
 "${SSH[@]}" "
   set -euo pipefail
   cd $REPO_DIR
   git fetch -q origin main
-  if ! git diff --quiet HEAD origin/main -- iso/includes/ 2>/dev/null; then
-    echo 'CONFLIT-SECRETS'
+  incoming=\$(git diff --name-only HEAD origin/main)
+  dirty=\$(git status --porcelain --untracked-files=no | awk '{print \$2}')
+  overlap=\$(comm -12 <(sort <<<\"\$incoming\") <(sort <<<\"\$dirty\"))
+  if [ -n \"\$overlap\" ]; then
+    echo \"CONFLIT-SECRETS: \$overlap\"
     exit 42
   fi
   git merge -q --ff-only origin/main
 " || {
   rc=$?
   if [ "$rc" -eq 42 ]; then
-    die "des commits entrants modifient iso/includes/ (qui porte vos secrets locaux).
-Sur le LXC : git checkout -- iso/includes/ && git pull && ./iso/set-secrets.sh, puis relancez."
+    die "des commits entrants modifient des fichiers portant vos changements locaux (secrets).
+Sur le LXC : notez vos secrets, git checkout -- <fichiers>, git pull, ./iso/set-secrets.sh, puis relancez."
   fi
   die "git pull a échoué sur le LXC (code $rc)"
 }
