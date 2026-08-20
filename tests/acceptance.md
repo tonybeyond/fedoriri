@@ -4,10 +4,15 @@
 développement (macOS, sans VM Fedora ni matériel AMD) ; le reste exige une VM
 ou le poste cible — la procédure est donnée pour chacun.
 
+Tests 1 et 2 validés en réel sur l'infra du commanditaire (LXC Fedora 44 pour
+le build, VM Proxmox OVMF pour l'installation). Tests 3–10 : à jouer dans la
+session installée (phrase LUKS requise au boot, donc interactifs). 11 partiel
+(revue), 12 non applicable tant que l'option A n'est pas déployée.
+
 | # | Test | Bloquant | État | Comment (re)jouer |
 |---|------|----------|------|-------------------|
 | 1 | L'ISO se construit, checksum amont vérifié (GPG + sha256) | oui | **VALIDÉ** (2026-08-20, VM Fedora 44 aarch64, build croisé) : signature « Good signature from Fedora (44) », sha256 amont OK, pool de 1018 RPM, ISO finale 2,3 Go + .sha256 | `sudo ./iso/build-iso.sh` — échoue volontairement si CHECKSUM non signé ou sha256 faux |
-| 2 | Installation non interactive complète en VM, LUKS compris | oui | **non exécuté ici** | `virt-install --name fedoriri --memory 4096 --disk size=40 --cdrom iso/build/fedoriri-44-x86_64.iso --os-variant fedora-unknown` puis vérifier `lsblk -f` (crypto_LUKS) et la connexion auto de `fedo` |
+| 2 | Installation non interactive complète en VM, LUKS compris | oui | **VALIDÉ** (2026-08-20, VM Proxmox OVMF + Secure Boot pré-enrôlé, x86_64). Preuves lues depuis l'hôte et la VM : `lsblk` = ESP 600M (`/boot/efi`) + `/boot` ext4 2G + LUKS2→btrfs (`/`, `/home`) ; header LUKS argon2id, 1 keyslot, **0 token, 0 keyfile**, cmdline sans `rd.luks.key` → phrase EXIGÉE au boot (« Please enter passphrase for disk luks-… ») ; installation sans aucune saisie, autologin `fedo`. Voir aussi le piège ksflatten/bootloader dans docs/limites.md | VM Proxmox : `bios=ovmf`, disque EFI, l'ISO en CD ; ou `virt-install … --cdrom iso/build/fedoriri-44-x86_64.iso`. Vérifier ESP + `crypto_LUKS` (`lsblk -f`) |
 | 3 | Niri démarre, session utilisable au clavier | oui | **non exécuté ici** | dans la VM : tty1 → autologin → niri ; `Mod+Shift+Slash` affiche l'aide |
 | 4 | xwayland-satellite tourne, xeyes s'affiche | oui | **non exécuté ici** | `journalctl --user -u niri -b \| grep "X11 socket"` puis `DISPLAY=:0 xeyes` (niri ≥ 25.08 le lance à la demande) |
 | 5 | `WFICA_OPTS="-span h" wfica` liste les moniteurs | non (diagnostic) | **non exécuté ici** | après `install-citrix.sh`, sur le poste cible |
