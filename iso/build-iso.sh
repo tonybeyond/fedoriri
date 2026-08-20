@@ -179,13 +179,29 @@ build_package_pool() {
   # dnf a résolu la fermeture ci-dessus, donc les membres mandatory/default
   # des groupes sont bien dans le pool.
   local os_base="https://download.fedoraproject.org/pub/fedora/linux/releases/${RELEASE}/Everything/${ARCH}/os"
-  local comps="$BUILD_DIR/comps-f${RELEASE}.xml" comps_href
+  local comps="$BUILD_DIR/comps-f${RELEASE}.xml" comps_href repomd
   if [ ! -s "$comps" ]; then
-    comps_href="$(curl -fsSL "$os_base/repodata/repomd.xml" \
-                  | grep -oE 'href="repodata/[^"]*comps[^"]*\.xml"' | head -1 \
-                  | sed -E 's/^href="(.*)"$/\1/')"
-    [ -n "$comps_href" ] || die "fichier comps introuvable dans le repomd.xml du miroir"
-    run curl -fsSL -o "$comps" "$os_base/$comps_href"
+    repomd="$(curl -fsSL "$os_base/repodata/repomd.xml")" \
+      || die "repomd.xml inaccessible sur $os_base"
+    # Les miroirs Fedora ne publient pas forcément de comps .xml brut :
+    # constaté en réel, seuls .xml.zst et .xml.zck étaient proposés. On prend
+    # le .xml s'il existe, sinon le .xml.zst (décompressé par zstd). awk en
+    # un seul processus : pas de pipeline grep|head sous pipefail, dont
+    # l'échec silencieux via set -e a déjà coûté un build.
+    comps_href="$(awk 'match($0,/href="repodata\/[^"]*comps[^"]*\.xml"/){print substr($0,RSTART+6,RLENGTH-7); exit}' <<<"$repomd")"
+    if [ -z "$comps_href" ]; then
+      comps_href="$(awk 'match($0,/href="repodata\/[^"]*comps[^"]*\.xml\.zst"/){print substr($0,RSTART+6,RLENGTH-7); exit}' <<<"$repomd")"
+    fi
+    [ -n "$comps_href" ] || die "fichier comps introuvable dans le repomd.xml du miroir (formats .xml/.xml.zst)"
+    log "comps : $comps_href"
+    run curl -fsSL -o "$comps.dl" "$os_base/$comps_href"
+    if [ "$DRY_RUN" -eq 0 ]; then
+      case "$comps_href" in
+        *.zst) require_cmd zstd; zstd -q -dcf "$comps.dl" > "$comps"; rm -f "$comps.dl" ;;
+        *)     mv "$comps.dl" "$comps" ;;
+      esac
+      [ -s "$comps" ] || die "comps vide après téléchargement/décompression"
+    fi
   fi
   run createrepo_c --update --groupfile "$comps" "$pool"
   log "pool local prêt : $(find "$pool" -name '*.rpm' 2>/dev/null | wc -l | tr -d ' ') RPM (+ groupes comps)"
