@@ -147,13 +147,18 @@ build_package_pool() {
   pkgs="$(sed -n '/^%packages/,/^%end/p' "$SCRIPT_DIR/includes/30-packages.ks" \
           | grep -vE '^(%|@|#|-|$)')"
   log "téléchargement de la fermeture de dépendances ($(wc -l <<<"$pkgs" | tr -d ' ') paquets explicites)…"
+  # dnf --installroot a besoin de root (verrous, cache, métadonnées).
+  if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
+    die "cette étape exige root : relancez avec sudo ./iso/build-iso.sh"
+  fi
   tmproot="$(mktemp -d)"
   # --installroot vide : dnf calcule la fermeture COMPLÈTE (comme anaconda),
   # pas seulement les paquets manquants sur l'hôte de build.
+  # --destdir et non --downloaddir : dnf5 (Fedora 41+) a renommé l'option.
   # shellcheck disable=SC2086  # $pkgs doit être éclaté en mots
   run dnf -y --installroot="$tmproot" --releasever="$RELEASE" --forcearch="$ARCH" \
       --use-host-config \
-      install --downloadonly --downloaddir="$pool" \
+      install --downloadonly --destdir="$pool" \
       @core @standard @hardware-support $pkgs
   run rm -rf "$tmproot"
   run createrepo_c --update "$pool"
