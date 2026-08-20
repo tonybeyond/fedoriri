@@ -261,7 +261,10 @@ PYEOF
   fi
 
   if [ "$DRY_RUN" -eq 0 ]; then
-    sha256sum "$OUT_ISO" | tee "$OUT_ISO.sha256"
+    # Nom de fichier relatif dans le .sha256 : vérifiable où que l'ISO soit
+    # copiée (sha256sum -c échoue sinon sur le chemin absolu de la machine
+    # de build — constaté après l'envoi vers Proxmox).
+    ( cd "$(dirname "$OUT_ISO")" && sha256sum "$(basename "$OUT_ISO")" | tee "$(basename "$OUT_ISO").sha256" )
   fi
   log "ISO produite : $OUT_ISO"
 }
