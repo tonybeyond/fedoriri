@@ -39,7 +39,7 @@ invalide, ou si le sha256 de l'ISO amont ne correspond pas.
 | Citrix ligne **GCC 11** (Technical Preview) | la stable exige webkit2gtk-4.0/libsoup-2.4, absents de Fedora 44 ; la TP se lie à webkit2gtk4.1/libsoup3 → installation propre, sans `rpm --nodeps`. Compromis (retard de correctifs) documenté |
 | Travail lourd au **premier boot**, pas dans `%post` | dnf interactif sans TTY, services non démarrables en chroot, compositeur absent ; unité oneshot avec témoin, sortie console, attente réseau par curl |
 | Versions **jamais figées dans les URL** | Shadow : manifeste `latest-linux.yml` → URL versionnée + sha512 ; Citrix : scrape (jeton Akamai ~1 h) ; starship/quickshell : dernière release résolue par API/tags |
-| Validation des noms de paquets contre **mdapi** = livrable ([scripts/validate-packages.sh](scripts/validate-packages.sh)) | dnf est atomique : un nom invalide fait tout échouer. La CI la rejoue à chaque push |
+| Validation des noms de paquets contre **mdapi** = livrable ([scripts/validate-packages.sh](scripts/validate-packages.sh)) | dnf est atomique : un nom invalide fait tout échouer. Rejouée par `tests/run-local-checks.sh` avant chaque build |
 | Pas de display manager : autologin tty1 → `niri-session` | façon Omarchy ; LUKS fait l'authentification primaire au démarrage |
 
 ## Vérifié / non vérifié
@@ -82,7 +82,7 @@ desktop/        config.kdl (niri), waybar, templates de thème, 22 thèmes
                 Omarchy (colors.toml), /etc/skel
 packaging/      starship (installeur vérifié), quickshell (option A + garde ABI Qt)
 configs/citrix/ wfclient.ini (+ repli multi-moniteurs), clés All_Regions
-tests/          run-local-checks.sh (CI) + acceptance.md (matrice complète)
+tests/          run-local-checks.sh + acceptance.md (matrice complète)
 docs/           limites.md — à lire avant de déployer
 ```
 

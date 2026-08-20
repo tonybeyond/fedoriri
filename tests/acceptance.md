@@ -31,5 +31,9 @@ ou le poste cible — la procédure est donnée pour chacun.
 - Manifeste Shadow lu et parsé en réel (version 9.9.10457, sha512 présent).
 - Page Citrix GCC 11 scrapée en réel : tarball x86_64 présent ; le lien signé
   est bien dans l'attribut `rel=` du HTML brut.
-- `shellcheck` et `ksvalidator` : non disponibles sur la machine de dev —
-  couverts par la CI (conteneur fedora:44).
+- `shellcheck` (0.11, brew) : propre en `-S warning` sur tous les scripts.
+- `ksvalidator` (pykickstart via pip) : kickstart aplati validé sans erreur.
+- Pas de CI hébergée (choix : pas de compte GitHub payant) — l'équivalent se
+  rejoue localement, y compris dans un conteneur propre :
+  `podman run --rm -v .:/src -w /src registry.fedoraproject.org/fedora:44 \
+   bash -c "dnf install -y ShellCheck pykickstart python3 findutils && bash tests/run-local-checks.sh"`
