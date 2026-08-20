@@ -1,0 +1,34 @@
+/* Waybar fedoriri — structure ; les couleurs viennent de colors.css,
+ * généré par fedoriri-theme-set à partir des colors.toml d'Omarchy. */
+@import "colors.css";
+
+* {
+  font-family: "JetBrains Mono", "Font Awesome 6 Free", monospace;
+  font-size: 13px;
+  min-height: 0;
+}
+
+window#waybar {
+  background: @background;
+  color: @foreground;
+  border-bottom: 2px solid @accent;
+}
+
+#workspaces button {
+  padding: 0 6px;
+  color: @muted;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+#workspaces button.active { color: @accent; }
+#workspaces button:hover  { color: @bright_foreground; }
+
+#window { color: @dark_foreground; padding: 0 10px; }
+
+#clock, #tray, #bluetooth, #network, #pulseaudio, #cpu, #custom-theme {
+  padding: 0 10px;
+  color: @foreground;
+}
+#clock { color: @bright_foreground; }
+#custom-theme { color: @accent; }

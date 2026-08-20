@@ -1,0 +1,20 @@
+# Garde-fou ABI Qt pour Quickshell (option A).
+# Quickshell utilise des API Qt privées : après chaque mise à jour de
+# qt6-qtbase, il DOIT être recompilé sous peine de crash (BUILD.md amont).
+# Ce service compare la version de Qt au tampon posé à la compilation et
+# relance build-quickshell.sh si elles divergent (test d'acceptation n°12).
+# Installé/activé par packaging/quickshell/build-all — uniquement si
+# l'option A est déployée.
+
+[Unit]
+Description=fedoriri : recompilation de Quickshell après mise à jour de Qt
+# Ne fait rien tant que Quickshell n'a jamais été compilé.
+ConditionPathExists=/var/lib/fedoriri/quickshell.qt-version
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fedoriri/packaging/quickshell/qt-guard.sh
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

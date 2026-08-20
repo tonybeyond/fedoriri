@@ -1,0 +1,21 @@
+# Généré par fedoriri-theme-set — ne pas éditer à la main.
+daemonize
+ignore-empty-password
+indicator-radius=100
+indicator-thickness=8
+color=0e0e14
+inside-color=1a1b26
+inside-clear-color=1a1b26
+inside-ver-color=1a1b26
+inside-wrong-color=1a1b26
+ring-color=414868
+ring-clear-color=e0af68
+ring-ver-color=7aa2f7
+ring-wrong-color=f7768e
+key-hl-color=7aa2f7
+text-color=a9b1d6
+text-clear-color=a9b1d6
+text-ver-color=a9b1d6
+text-wrong-color=f7768e
+line-uses-inside
+separator-color=00000000

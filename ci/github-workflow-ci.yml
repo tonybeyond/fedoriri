@@ -1,0 +1,56 @@
+# CI fedoriri — lint + validation des paquets à chaque push ;
+# build de l'ISO à la demande (workflow_dispatch : ~4 Go de téléchargement,
+# on ne l'impose pas à chaque commit).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_iso:
+        description: "Construire l'ISO complète"
+        type: boolean
+        default: false
+
+jobs:
+  lint:
+    name: lint + validation paquets (fedora:44)
+    runs-on: ubuntu-latest
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@v4
+      - name: Outils
+        run: dnf install -y --setopt=install_weak_deps=False ShellCheck pykickstart python3 findutils
+      - name: Vérifications locales (lint, thèmes, kickstart, mdapi)
+        run: bash tests/run-local-checks.sh
+
+  build-iso:
+    name: build ISO (manuel)
+    if: github.event_name == 'workflow_dispatch' && inputs.build_iso
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:44
+      # dnf --installroot (pool de paquets) a besoin des privilèges.
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Outils de build
+        run: dnf install -y lorax pykickstart createrepo_c xorriso dnf-plugins-core rsync
+      - name: Injecter des secrets de build (hash + LUKS de CI, PAS ceux de prod)
+        # Le garde-fou de build-iso.sh exige que les placeholders soient
+        # remplacés ; en CI on pose des valeurs jetables — l'ISO d'artefact
+        # CI sert à valider la chaîne, pas à être déployée telle quelle.
+        run: |
+          HASH="$(openssl passwd -6 'ci-only-not-for-production')"
+          sed -i "s|CHANGEME_PASSWORD_HASH_SHA512|${HASH}|" iso/includes/10-base.ks
+          sed -i "s|CHANGEME_LUKS_PASSPHRASE|ci-only-not-for-production|" iso/includes/20-partitioning.ks
+      - name: Construire
+        run: ./iso/build-iso.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fedoriri-iso
+          path: |
+            iso/build/fedoriri-*.iso
+            iso/build/fedoriri-*.iso.sha256
+          retention-days: 7

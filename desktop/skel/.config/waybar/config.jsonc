@@ -1,0 +1,57 @@
+// Waybar fedoriri — barre unique en haut, esthétique Omarchy (option B).
+// Les couleurs vivent dans colors.css, généré par fedoriri-theme-set.
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 6,
+
+  "modules-left": ["niri/workspaces", "niri/window"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "bluetooth", "network", "pulseaudio", "cpu", "custom/theme"],
+
+  "niri/workspaces": {
+    "format": "{icon}",
+    "format-icons": { "active": "", "default": "" }
+  },
+  "niri/window": {
+    "max-length": 60,
+    "separate-outputs": true
+  },
+  "clock": {
+    // Formats fr_CH : jour.mois.année, heure 24 h.
+    "format": "{:%H:%M}",
+    "format-alt": "{:%A %d.%m.%Y  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "tray": { "icon-size": 16, "spacing": 8 },
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "format-connected": " {num_connections}",
+    "on-click": "alacritty -e bluetoothctl"
+  },
+  "network": {
+    "format-wifi": "  {signalStrength}%",
+    "format-ethernet": "",
+    "format-disconnected": "󰌙",
+    "tooltip-format": "{ifname} — {ipaddr}",
+    "on-click": "alacritty -e nmtui"
+  },
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": " ",
+    "format-icons": { "default": ["", "", ""] },
+    "on-click": "pamixer -t"
+  },
+  "cpu": {
+    "format": " {usage}%",
+    "interval": 5,
+    "on-click": "alacritty -e btop"
+  },
+  "custom/theme": {
+    "format": "",
+    "tooltip": false,
+    "on-click": "fedoriri-theme-set --next"
+  }
+}

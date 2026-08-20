@@ -1,0 +1,27 @@
+# fedoriri-first-boot.service — installation lourde au premier démarrage.
+#
+# Pourquoi ici et pas dans le %post du kickstart : dnf y est interactif sans
+# TTY, les services ne démarrent pas en chroot, et le compositeur n'est pas
+# lancé. Au premier boot, tout cela est disponible.
+
+[Unit]
+Description=fedoriri : post-installation au premier démarrage
+# Le témoin est posé par first-boot.sh AVANT le systemctl disable : si le
+# script plante en cours de route, il ne pose PAS le témoin et l'installation
+# reprend (idempotente) au démarrage suivant.
+ConditionPathExists=!/var/lib/fedoriri/first-boot.done
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fedoriri/scripts/first-boot.sh
+# L'étape dure plusieurs minutes et télécharge des centaines de Mo :
+# sans retour console, l'utilisateur croit à un démarrage figé.
+StandardOutput=journal+console
+StandardError=journal+console
+# Type=oneshot : TimeoutStartSec est désactivé par défaut (systemd.service(5)),
+# inutile de le poser.
+
+[Install]
+WantedBy=multi-user.target

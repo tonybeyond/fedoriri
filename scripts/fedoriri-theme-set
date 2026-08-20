@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# fedoriri-theme-set — applique un thème Omarchy au bureau fedoriri (option B).
+#
+# S'exécute en tant qu'UTILISATEUR (pas root). Pour chaque template de
+# /usr/share/fedoriri/templates (surchargées par ~/.config/fedoriri/templates),
+# rend le fichier avec les couleurs du thème puis le place à destination.
+# Les applications sont rechargées à chaud, sauf --no-reload (premier boot,
+# aucune session graphique).
+
+set -euo pipefail
+
+SHARE="${FEDORIRI_SHARE_DIR:-/usr/share/fedoriri}"
+CONF="$HOME/.config"
+STATE="$CONF/fedoriri"
+RENDER="/usr/local/bin/fedoriri-render-theme"
+# Fallback pour exécution depuis le dépôt (développement).
+[ -x "$RENDER" ] || RENDER="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/render-theme.py"
+
+log()  { printf '\033[1;34m[theme]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[theme]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[theme]\033[0m %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<EOF
+Usage : fedoriri-theme-set [--no-reload] <nom-du-theme>
+        fedoriri-theme-set --list
+        fedoriri-theme-set --next        (thème suivant, ordre alphabétique)
+Thèmes dans $SHARE/themes (surcharge : ~/.config/fedoriri/themes).
+EOF
+}
+
+theme_dirs() {
+  local d
+  for d in "$STATE/themes" "$SHARE/themes"; do
+    [ -d "$d" ] && printf '%s\n' "$d"
+  done
+}
+
+list_themes() {
+  # shellcheck disable=SC2046
+  find $(theme_dirs | tr '\n' ' ') -mindepth 1 -maxdepth 1 -type d 2>/dev/null \
+    | awk -F/ '{print $NF}' | sort -u
+}
+
+RELOAD=1
+THEME=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --list)      list_themes; exit 0 ;;
+    --next)
+      current="$(cat "$STATE/current-theme" 2>/dev/null || true)"
+      THEME="$(list_themes | awk -v c="$current" 'NR==1{first=$0} $0==c{getline; print; found=1; exit} END{if(!found) print first}')"
+      ;;
+    --no-reload) RELOAD=0 ;;
+    --help|-h)   usage; exit 0 ;;
+    *)           THEME="$1" ;;
+  esac
+  shift
+done
+[ -n "$THEME" ] || { usage; exit 1; }
+
+# Résolution du thème (les thèmes utilisateur priment).
+COLORS=""
+for d in $(theme_dirs); do
+  [ -f "$d/$THEME/colors.toml" ] && COLORS="$d/$THEME/colors.toml" && break
+done
+[ -n "$COLORS" ] || die "thème inconnu : $THEME (fedoriri-theme-set --list)"
+log "application du thème $THEME"
+
+mkdir -p "$STATE/current"
+
+# ---------------------------------------------------------------------------
+# Rendu des templates (les templates utilisateur priment sur les systèmes).
+# ---------------------------------------------------------------------------
+declare -A RENDERED=()
+for tdir in "$STATE/templates" "$SHARE/templates"; do
+  [ -d "$tdir" ] || continue
+  for tpl in "$tdir"/*.tpl; do
+    [ -e "$tpl" ] || continue
+    name="$(basename "$tpl" .tpl)"
+    [ -n "${RENDERED[$name]:-}" ] && continue
+    RENDERED[$name]=1
+    "$RENDER" "$COLORS" "$tpl" "$STATE/current/$name"
+  done
+done
+
+# ---------------------------------------------------------------------------
+# Placement à destination. Chaque cas est idempotent (copie écrasante).
+# ---------------------------------------------------------------------------
+place() { install -D -m 0644 "$STATE/current/$1" "$2"; }
+
+[ -f "$STATE/current/waybar-colors.css" ] && place waybar-colors.css "$CONF/waybar/colors.css"
+[ -f "$STATE/current/fuzzel.ini" ]        && place fuzzel.ini        "$CONF/fuzzel/fuzzel.ini"
+[ -f "$STATE/current/mako.conf" ]         && place mako.conf         "$CONF/mako/config"
+[ -f "$STATE/current/swaylock.conf" ]     && place swaylock.conf     "$CONF/swaylock/config"
+[ -f "$STATE/current/alacritty.toml" ]    && place alacritty.toml    "$CONF/alacritty/theme.toml"
+[ -f "$STATE/current/foot.ini" ]          && place foot.ini          "$CONF/foot/theme.ini"
+[ -f "$STATE/current/btop.theme" ]        && place btop.theme        "$CONF/btop/themes/fedoriri.theme"
+
+# Niri : pas de directive d'inclusion en KDL → on remplace le bloc balisé
+# du config.kdl en place (entre FEDORIRI-THEME-BEGIN et FEDORIRI-THEME-END).
+NIRI_CFG="$CONF/niri/config.kdl"
+if [ -f "$NIRI_CFG" ] && [ -f "$STATE/current/niri-theme.kdl" ]; then
+  if grep -q 'FEDORIRI-THEME-BEGIN' "$NIRI_CFG"; then
+    awk -v frag="$STATE/current/niri-theme.kdl" '
+      /FEDORIRI-THEME-BEGIN/ { print; while ((getline l < frag) > 0) print l; close(frag); skipping=1; next }
+      /FEDORIRI-THEME-END/   { skipping=0 }
+      !skipping { print }
+    ' "$NIRI_CFG" > "$NIRI_CFG.tmp" && mv "$NIRI_CFG.tmp" "$NIRI_CFG"
+    # niri recharge sa configuration automatiquement à l'écriture du fichier.
+  else
+    warn "marqueurs FEDORIRI-THEME absents de $NIRI_CFG : couleurs niri non appliquées"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Fond d'écran : premier fichier du thème (synchronisé par
+# sync-omarchy-assets.sh ; absent tant que le premier boot n'a pas eu lieu).
+# ---------------------------------------------------------------------------
+BG_DIR="$SHARE/backgrounds/$THEME"
+BG="$(find "$BG_DIR" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) 2>/dev/null | sort | head -1 || true)"
+if [ -n "$BG" ]; then
+  ln -sf "$BG" "$STATE/background"
+else
+  warn "pas de fond d'écran pour $THEME (sync-omarchy-assets.sh pas encore passé ?)"
+fi
+
+printf '%s\n' "$THEME" > "$STATE/current-theme"
+
+# ---------------------------------------------------------------------------
+# Rechargements à chaud.
+# ---------------------------------------------------------------------------
+if [ "$RELOAD" -eq 1 ]; then
+  command -v makoctl >/dev/null 2>&1 && makoctl reload 2>/dev/null || true
+  pkill -USR2 -x waybar 2>/dev/null || true   # SIGUSR2 : waybar recharge son CSS
+  if [ -L "$STATE/background" ]; then
+    pkill -x swaybg 2>/dev/null || true
+    ( setsid swaybg -m fill -i "$STATE/background" >/dev/null 2>&1 & ) || true
+  fi
+  # alacritty et niri rechargent d'eux-mêmes ; foot et btop au prochain
+  # lancement.
+fi
+log "thème $THEME appliqué."

@@ -1,0 +1,26 @@
+# Dépendances de compilation de Quickshell sur Fedora 44.
+# Validées contre mdapi par tests/run-local-checks.sh (même règle que le
+# kickstart : un nom invalide fait échouer dnf en bloc).
+cmake
+ninja-build
+gcc-c++
+git-core
+spirv-tools
+qt6-qtbase-devel
+qt6-qtbase-private-devel
+qt6-qtdeclarative-devel
+qt6-qtwayland-devel
+qt6-qtsvg-devel
+qt6-qtshadertools-devel
+wayland-devel
+wayland-protocols-devel
+libdrm-devel
+mesa-libgbm-devel
+pipewire-devel
+polkit-devel
+pam-devel
+cli11-devel
+jemalloc-devel
+libxcb-devel
+xcb-util-errors-devel
+NetworkManager-libnm-devel
