@@ -36,10 +36,22 @@ LC_PAPER=fr_CH.UTF-8
 LC_MEASUREMENT=fr_CH.UTF-8
 EOF
 
-# /etc/skel : dotfiles du bureau (niri, waybar, fuzzel, mako, alacritty…).
-# L'utilisateur fedo est créé par anaconda APRÈS le %post, donc il hérite
-# bien de ce skel.
+# /etc/skel : dotfiles du bureau (niri, waybar, fuzzel, mako, alacritty…),
+# pour les comptes créés PLUS TARD.
 cp -a /opt/fedoriri/desktop/skel/. /etc/skel/
+
+# ⚠️ Anaconda traite la commande kickstart `user` PENDANT la configuration,
+# AVANT le %post : le home de fedo a donc été peuplé depuis /etc/skel tel
+# qu'il était à ce moment — SANS nos dotfiles, d'où un login qui tombait sur
+# un shell nu au lieu de lancer niri (constaté au test n°3). On propage donc
+# le skel aux comptes déjà créés.
+for home in /home/*; do
+  [ -d "$home" ] || continue
+  u="$(basename "$home")"
+  id "$u" >/dev/null 2>&1 || continue
+  cp -a /etc/skel/. "$home/"
+  chown -R "$u:$(id -gn "$u")" "$home"
+done
 
 # Rendre les scripts appelables.
 chmod -R u+rwX,go+rX /opt/fedoriri
