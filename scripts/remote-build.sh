@@ -79,14 +79,26 @@ Sur le LXC : notez vos secrets, git checkout -- <fichiers>, git pull, ./iso/set-
 log "build de l'ISO sur le LXC (le pool en cache rend les rebuilds rapides)…"
 "${SSH[@]}" "cd $REPO_DIR && ./iso/build-iso.sh $SKIP_POOL_FLAG"
 
+SHA_LINE="$("${SSH[@]}" "cat $REPO_DIR/iso/build/fedoriri-44-x86_64.iso.sha256" 2>/dev/null || true)"
+log "build terminé. sha256 : ${SHA_LINE%% *}"
+
 if [ "$SKIP_UPLOAD" -eq 1 ]; then
-  log "build terminé (--no-upload) : l'ISO est sur le LXC dans $REPO_DIR/iso/build/"
+  log "(--no-upload) L'ISO est sur le LXC : $REPO_DIR/iso/build/fedoriri-44-x86_64.iso"
   exit 0
 fi
 
-log "envoi vers $PROXMOX_DEST…"
-"${SSH[@]}" "scp -o StrictHostKeyChecking=accept-new \
+# L'accès SSH LXC → Proxmox a été volontairement révoqué (2026-08-20) : la
+# récupération de l'ISO est désormais TIRÉE par l'opérateur, pas poussée.
+# On tente quand même le scp si un accès existe, sinon on guide.
+log "tentative d'envoi vers $PROXMOX_DEST…"
+if "${SSH[@]}" "scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
   $REPO_DIR/iso/build/fedoriri-44-x86_64.iso \
   $REPO_DIR/iso/build/fedoriri-44-x86_64.iso.sha256 \
-  '$PROXMOX_DEST/'"
-log "terminé : fedoriri-44-x86_64.iso est disponible dans la bibliothèque ISO de Proxmox."
+  '$PROXMOX_DEST/'" 2>/dev/null; then
+  log "terminé : fedoriri-44-x86_64.iso est disponible dans la bibliothèque ISO de Proxmox."
+else
+  warn "envoi impossible (accès Proxmox révoqué — c'est attendu). Récupérez l'ISO vous-même :
+  depuis l'hôte Proxmox :
+    scp root@10.11.12.105:$REPO_DIR/iso/build/fedoriri-44-x86_64.iso /var/lib/vz/template/iso/
+  puis vérifiez : sha256sum … → ${SHA_LINE%% *}"
+fi
