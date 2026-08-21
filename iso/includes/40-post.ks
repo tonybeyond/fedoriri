@@ -18,7 +18,10 @@ if [ -z "$SRC" ]; then
   exit 1
 fi
 mkdir -p /mnt/sysimage/opt/fedoriri
-cp -a "$SRC/payload/." /mnt/sysimage/opt/fedoriri/
+# --no-preserve=context : sans cela, les fichiers gardent le label SELinux de
+# l'ISO (iso9660_t) et systemd (init_t) ne peut PAS exécuter first-boot.sh
+# (AVC denied { execute }, unité en 203/EXEC) — constaté sur matériel réel.
+cp -a --no-preserve=context "$SRC/payload/." /mnt/sysimage/opt/fedoriri/
 %end
 
 # --- Configuration dans le chroot -------------------------------------------
@@ -63,6 +66,9 @@ done
 
 # Rendre les scripts appelables.
 chmod -R u+rwX,go+rX /opt/fedoriri
+# Relabel complet (ceinture et bretelles : le contexte du média ne doit
+# survivre nulle part, /etc/skel et /usr/share/fedoriri compris).
+restorecon -RF /opt/fedoriri /etc/skel 2>/dev/null || true
 find /opt/fedoriri/scripts -name '*.sh' -exec chmod 0755 {} +
 install -m 0755 /opt/fedoriri/scripts/fedoriri-theme-set    /usr/local/bin/fedoriri-theme-set
 install -m 0755 /opt/fedoriri/scripts/fedoriri-passthrough  /usr/local/bin/fedoriri-passthrough
@@ -72,6 +78,7 @@ install -m 0755 /opt/fedoriri/scripts/render-theme.py       /usr/local/bin/fedor
 mkdir -p /usr/share/fedoriri
 cp -a /opt/fedoriri/desktop/themes    /usr/share/fedoriri/themes
 cp -a /opt/fedoriri/desktop/templates /usr/share/fedoriri/templates
+restorecon -RF /usr/share/fedoriri /usr/local/bin 2>/dev/null || true
 
 # Service de premier démarrage (Citrix, Shadow, RPM Fusion, thèmes…).
 install -m 0644 /opt/fedoriri/systemd/fedoriri-first-boot.service /etc/systemd/system/

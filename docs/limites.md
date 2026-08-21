@@ -149,3 +149,16 @@ voir le bureau en VM il faut du VirGL (`vga: virtio-gl`, hôte avec GPU +
 libgl1/libegl1). Sur matériel réel (GPU AMD, radeonsi = renderer matériel),
 cette branche d'échec ne s'applique pas ; en cas de souci, lire
 `~/.local/share/niri/session.log` depuis tty2 ou ssh.
+
+## Label SELinux du payload (constaté sur matériel réel le 2026-08-21)
+
+`cp -a` depuis le média d'installation conserve le contexte SELinux
+`iso9660_t` sur `/opt/fedoriri` : `fedoriri-first-boot.service` échouait en
+`203/EXEC` (AVC `denied { execute }` pour init_t), donc AUCUNE étape de
+premier démarrage (RPM Fusion, Citrix, Shadow) ne se lançait d'elle-même —
+alors que `sudo bash first-boot.sh` passait, bash ne demandant pas le droit
+d'exécution sur le fichier. Corrigé dans 40-post.ks : `--no-preserve=context`
+à la copie + `restorecon -RF` sur /opt/fedoriri, /etc/skel,
+/usr/share/fedoriri, /usr/local/bin. Sur un système déjà installé avec une
+ISO antérieure : `sudo restorecon -RF /opt/fedoriri /usr/share/fedoriri
+/etc/skel && sudo systemctl restart fedoriri-first-boot.service`.
