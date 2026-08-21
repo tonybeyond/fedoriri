@@ -13,15 +13,15 @@ session installée (phrase LUKS requise au boot, donc interactifs). 11 partiel
 |---|------|----------|------|-------------------|
 | 1 | L'ISO se construit, checksum amont vérifié (GPG + sha256) | oui | **VALIDÉ** (2026-08-20, VM Fedora 44 aarch64, build croisé) : signature « Good signature from Fedora (44) », sha256 amont OK, pool de 1018 RPM, ISO finale 2,3 Go + .sha256 | `sudo ./iso/build-iso.sh` — échoue volontairement si CHECKSUM non signé ou sha256 faux |
 | 2 | Installation non interactive complète en VM, LUKS compris | oui | **VALIDÉ** (2026-08-20, VM Proxmox OVMF + Secure Boot pré-enrôlé, x86_64). Preuves lues depuis l'hôte et la VM : `lsblk` = ESP 600M (`/boot/efi`) + `/boot` ext4 2G + LUKS2→btrfs (`/`, `/home`) ; header LUKS argon2id, 1 keyslot, **0 token, 0 keyfile**, cmdline sans `rd.luks.key` → phrase EXIGÉE au boot (« Please enter passphrase for disk luks-… ») ; installation sans aucune saisie, autologin `fedo`. Voir aussi le piège ksflatten/bootloader dans docs/limites.md | VM Proxmox : `bios=ovmf`, disque EFI, l'ISO en CD ; ou `virt-install … --cdrom iso/build/fedoriri-44-x86_64.iso`. Vérifier ESP + `crypto_LUKS` (`lsblk -f`) |
-| 3 | Niri démarre, session utilisable au clavier | oui | **non exécuté ici** | dans la VM : tty1 → autologin → niri ; `Mod+Shift+Slash` affiche l'aide |
-| 4 | xwayland-satellite tourne, xeyes s'affiche | oui | **non exécuté ici** | `journalctl --user -u niri -b \| grep "X11 socket"` puis `DISPLAY=:0 xeyes` (niri ≥ 25.08 le lance à la demande) |
+| 3 | Niri démarre, session utilisable au clavier | oui | **VALIDÉ** (2026-08-21, matériel AMD Lucienne/radeonsi + VM Proxmox) : tty1 → autologin → `niri --session` (session de login unique), sortie DP-2 active, waybar/mako/swaybg/polkit/cliphist/passthrough/swayidle lancés, layout « French (Switzerland) », IPC `niri msg` OK ; Alacritty ouverte par l'utilisateur. En VM sans VirGL : tout démarre mais aucun rendu (niri refuse llvmpipe), voir limites.md | dans la VM : tty1 → autologin → niri ; `Mod+Shift+Slash` affiche l'aide |
+| 4 | xwayland-satellite tourne, xeyes s'affiche | oui | **VALIDÉ** (2026-08-21, matériel) : socket X11 `:0` créé par niri ; un client X11 réel (Citrix `selfservice`) fait apparaître `Xwayland :0 -rootless …` spawné par xwayland-satellite. xeyes n'est pas dans le jeu de paquets : utiliser `xprop` ou Citrix comme client | `journalctl --user -u niri -b \| grep "X11 socket"` puis `DISPLAY=:0 xeyes` (niri ≥ 25.08 le lance à la demande) |
 | 5 | `WFICA_OPTS="-span h" wfica` liste les moniteurs | non (diagnostic) | **non exécuté ici** | après `install-citrix.sh`, sur le poste cible |
 | 6 | Citrix plein écran mono-moniteur sans duplication/redimensionnement | oui | **non exécuté ici** | window-rule `open-fullscreen` posée ; valider visuellement sur le poste |
 | 7 | Copier depuis Citrix → coller dans une app Wayland | oui | **non exécuté ici** | copier dans la session ICA, `wl-paste` dans un terminal ; comportement au changement de focus à documenter (cf. docs/limites.md) |
-| 8 | Shadow démarre, /dev/uinput accessible, clavier/souris répondent | oui | **non exécuté ici** | `ls -l /dev/uinput` (groupe shadow-input, 0660), `id fedo` (groupes shadow-input,input), lancer Shadow |
+| 8 | Shadow démarre, /dev/uinput accessible, clavier/souris répondent | oui | **partiel** (2026-08-21, matériel) : Shadow 9.9.10457 installé (AppImage, `shadow-pc.desktop`), `/dev/uinput` = `crw-rw---- root:shadow-input` via 65-shadow-client.rules, fedo ∈ input,shadow-input. Les groupes n'entrent en vigueur qu'après reconnexion : lancement GUI + clavier/souris à confirmer par l'utilisateur après redémarrage | `ls -l /dev/uinput` (groupe shadow-input, 0660), `id fedo` (groupes shadow-input,input), lancer Shadow |
 | 9 | Alt+Tab et Super consommés par Shadow, pas par niri | oui | **non exécuté ici** | focus sur Shadow → `fedoriri-passthrough` bascule l'inhibition (vérif : `Mod+T` ne doit PLUS ouvrir btop) ; `Mod+Escape` = bascule manuelle |
-| 10 | `vainfo` liste des profils H264 | oui | **non exécuté ici** | après premier boot (RPM Fusion + mesa-va-drivers-freeworld) : `vainfo \| grep H264` |
-| 11 | Rejouer `post-install.sh` ne casse rien (idempotence) | oui | **partiel** : chaque étape a un garde d'état (relu en revue) ; à confirmer en VM | `sudo /opt/fedoriri/scripts/post-install.sh` deux fois de suite — la 2ᵉ passe ne doit rien retélécharger |
+| 10 | `vainfo` liste des profils H264 | oui | **VALIDÉ** (2026-08-21, matériel) : `vainfo` → « Mesa Gallium driver 26.1.7 for AMD Radeon Graphics (radeonsi, renoir) », VAProfileH264ConstrainedBaseline/Main/High VLD présents (mesa-va-drivers-freeworld via RPM Fusion au premier boot) | après premier boot (RPM Fusion + mesa-va-drivers-freeworld) : `vainfo \| grep H264` |
+| 11 | Rejouer `post-install.sh` ne casse rien (idempotence) | oui | **VALIDÉ** (2026-08-21, matériel) : 2e exécution de `first-boot.sh` = 3,7 s, « déjà installé / rien à faire » partout (marqueurs citrix-version, shadow-version, first-boot.done). Le service systemd a aussi rejoué 3 fois sans double installation | `sudo /opt/fedoriri/scripts/post-install.sh` deux fois de suite — la 2ᵉ passe ne doit rien retélécharger |
 | 12 | Après un bump Qt, le shell Quickshell fonctionne toujours | oui (si option A) | **non applicable pour l'instant** (option A non déployée) | mécanisme livré : `fedoriri-quickshell-qt-guard.service` compare le tampon Qt et recompile ; test : `dnf upgrade qt6-qtbase` puis reboot |
 
 ## Exécuté ici (2026-08-20, macOS + réseau)
@@ -42,3 +42,14 @@ session installée (phrase LUKS requise au boot, donc interactifs). 11 partiel
   rejoue localement, y compris dans un conteneur propre :
   `podman run --rm -v .:/src -w /src registry.fedoraproject.org/fedora:44 \
    bash -c "dnf install -y ShellCheck pykickstart python3 findutils && bash tests/run-local-checks.sh"`
+
+## Exécuté sur matériel réel (2026-08-21, AMD Lucienne, écran Dell U2725QE en DP)
+
+Deux défauts bloquants trouvés et corrigés grâce à l'accès SSH au poste :
+`fedoriri-first-boot.service` en 203/EXEC (label SELinux `iso9660_t` hérité
+du média, commit 95624bb) et `setupwfc` 26.04 incompatible avec la séquence
+de réponses figée (commit 99206d5). Après correction, premier démarrage
+complet sous systemd : Citrix 26.04.0.105, Shadow 9.9.10457, starship 1.26.0,
+thème tokyo-night, marqueur `first-boot.done`, unité auto-désactivée.
+Tests 5, 6, 7, 9 (session ICA réelle, session Shadow) restent à faire par
+l'utilisateur : ils exigent ses comptes.
