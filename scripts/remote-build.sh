@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# remote-build.sh — orchestre le build de l'ISO sur le LXC de build, puis
+# remote-build.sh — orchestre le build de l'ISO sur la VM de build (Fedora 44), puis
 # l'envoie sur le serveur Proxmox. À lancer depuis n'importe quel poste ayant
 # un accès SSH au LXC (clef dédiée), typiquement le Mac de dev.
 #
@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-BUILD_HOST="${FEDORIRI_BUILD_HOST:-root@10.11.12.105}"
+BUILD_HOST="${FEDORIRI_BUILD_HOST:-root@10.11.12.211}"
 SSH_KEY="${FEDORIRI_BUILD_KEY:-$HOME/.ssh/fedoriri_build}"
 REPO_DIR="/root/fedoriri"
 PROXMOX_DEST="${FEDORIRI_PROXMOX_DEST:-root@self.genly.dev:/var/lib/vz/template/iso}"
@@ -99,6 +99,6 @@ if "${SSH[@]}" "scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
 else
   warn "envoi impossible (accès Proxmox révoqué — c'est attendu). Récupérez l'ISO vous-même :
   depuis l'hôte Proxmox :
-    scp root@10.11.12.105:$REPO_DIR/iso/build/fedoriri-44-x86_64.iso /var/lib/vz/template/iso/
+    scp root@10.11.12.211:$REPO_DIR/iso/build/fedoriri-44-x86_64.iso /var/lib/vz/template/iso/
   puis vérifiez : sha256sum … → ${SHA_LINE%% *}"
 fi

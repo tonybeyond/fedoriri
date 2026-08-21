@@ -125,3 +125,27 @@ n'est jamais installé, le système n'amorce ni en UEFI ni en BIOS. Prouvé le
 complets). Parades : commande `bootloader --location=mbr --timeout=1`
 explicite dans 10-base.ks + garde-fou de build qui refuse un kickstart
 aplati contenant `--location=none`.
+
+## Rendu graphique en machine virtuelle (validation du 2026-08-21)
+
+La session est démarrée par `~/.bash_profile` sur tty1 : `niri --session`
+tourne DIRECTEMENT dans la session de login (l'ancien montage via
+`niri-session`/unité systemd user bouclait en silence — corrigé), avec
+journal dans `~/.local/share/niri/session.log`.
+
+Validé en VM Proxmox (installation automatique complète, LUKS, autologin) :
+une seule session de login, niri 26.04 démarre, config chargée, sockets
+Wayland + X11 créés, toute la pile lancée (waybar, swaybg, mako, agent
+polkit, cliphist, fedoriri-passthrough, swayidle), layout « French
+(Switzerland) » actif, IPC `niri msg` fonctionnel.
+
+LIMITE : dans une VM **sans accélération 3D** (Proxmox `vga: virtio` sans
+VirGL, hôte sans GPU), niri ne peut créer aucune sortie :
+`failed to initialize renderer […] software EGL renderers are skipped`
+puis `no allocator available for device` — l'écran reste sur la console
+(le compositeur tourne pourtant, visible en ssh). Ce n'est PAS un bug
+fedoriri : niri refuse le rendu logiciel llvmpipe sur le backend tty. Pour
+voir le bureau en VM il faut du VirGL (`vga: virtio-gl`, hôte avec GPU +
+libgl1/libegl1). Sur matériel réel (GPU AMD, radeonsi = renderer matériel),
+cette branche d'échec ne s'applique pas ; en cas de souci, lire
+`~/.local/share/niri/session.log` depuis tty2 ou ssh.
