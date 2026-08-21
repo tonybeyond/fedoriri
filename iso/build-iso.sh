@@ -169,6 +169,11 @@ build_package_pool() {
       install --downloadonly \
       @core @standard @hardware-support $pkgs
   if [ "$DRY_RUN" -eq 0 ]; then
+    # Purge du pool avant récolte : sinon les RPM de paquets retirés du
+    # %packages (ex. firefox) ou d'anciennes versions s'accumulent d'un build à
+    # l'autre (constaté : deux firefox dans une ISO sans firefox). Le cache
+    # libdnf5 reste intact, rien n'est retéléchargé.
+    find "$pool" -maxdepth 1 -name '*.rpm' -delete
     find "$tmproot/var/cache/libdnf5" -name '*.rpm' -exec cp -f {} "$pool/" \;
     [ -n "$(find "$pool" -name '*.rpm' | head -1)" ] \
       || die "aucun RPM récupéré depuis le cache libdnf5 ($tmproot) — chemin de cache inattendu ?"
