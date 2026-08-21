@@ -173,3 +173,34 @@ l'incrément 1 installait dans un répertoire nommé « y » puis abandonnait
 (pty, bibliothèque standard) répond désormais à chaque invite reconnue par
 son texte et ABANDONNE explicitement sur une invite inconnue ; validé sur
 matériel : Citrix 26.04.0.105 installé, EPA/App Protection/FIDO2 refusés.
+
+## Corrections issues du banc matériel du 2026-08-21 (après-midi)
+
+- **Barre waybar vide** : les glyphes d'icônes avaient disparu du config.jsonc
+  (chaînes vides) — pas un problème de police. Icônes désormais en
+  échappements JSON `\uXXXX`, tous couverts par Font Awesome 6 Free et
+  Cascadia Mono NF (`cascadia-mono-nf-fonts`, paquet Fedora, hors ligne).
+- **Aide des raccourcis** : `Mod+F1` (ex-`Mod+Shift+Slash`, intapable en
+  suisse romand où « / » est déjà Shift+7).
+- **Shadow ne se lançait pas** : `dlopen(): error loading libfuse.so.2` —
+  `fuse-libs` ajouté au pool (+ garde dans install-shadow.sh).
+- **Portails XDG morts** (`Dependency failed for xdg-desktop-portal`) :
+  `graphical-session.target` refuse le démarrage manuel et n'était tiré par
+  personne (niri lancé hors unité systemd). `fedoriri-session.service`
+  (skel, `BindsTo=graphical-session.target`) est démarrée par niri au
+  lancement et arrêtée par `.bash_profile` à sa sortie → FileChooser,
+  OpenURI, ScreenCast, Settings servis.
+- **Navigateur** : Firefox retiré ; **Brave Origin** (`brave-origin`, dépôt RPM
+  officiel Brave, gratuit sur Linux) au premier boot, navigateur par défaut
+  via xdg-settings, `Mod+B`.
+- **Claude Desktop** : Anthropic ne publie que du .deb (Ubuntu/Debian, bêta ;
+  « Fedora and RHEL … coming in the future »). install-claude-desktop.sh
+  prend le .deb OFFICIEL dans le pool apt Anthropic, vérifie clef
+  (empreinte 31DDDE24…1A7ECACE) → InRelease → Packages → sha256 du .deb,
+  puis le déballe (bsdtar) sous /usr/lib/claude-desktop ; pas de
+  reconditionnement tiers. Toutes ses dépendances Debian ont leur
+  équivalent déjà dans le pool.
+- **Trousseau GNOME** : sans trousseau, Claude Desktop restait bloqué derrière
+  une invite gcr « créer un trousseau » (autologin = pas de mot de passe
+  pour pam_gnome_keyring). post-install crée un trousseau « login » non
+  chiffré (le disque est sous LUKS) ; `secret-tool` fonctionne sans invite.

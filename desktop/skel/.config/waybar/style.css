@@ -3,7 +3,7 @@
 @import "colors.css";
 
 * {
-  font-family: "JetBrains Mono", "Font Awesome 6 Free", monospace;
+  font-family: "Cascadia Mono NF", "JetBrains Mono", "Font Awesome 6 Free", monospace;
   font-size: 13px;
   min-height: 0;
 }

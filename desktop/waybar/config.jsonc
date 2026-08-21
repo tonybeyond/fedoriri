@@ -1,5 +1,13 @@
 // Waybar fedoriri — barre unique en haut, esthétique Omarchy (option B).
 // Les couleurs vivent dans colors.css, généré par fedoriri-theme-set.
+//
+// Les icônes sont écrites en échappements JSON \uXXXX (jamais en glyphes
+// littéraux) : un éditeur ou un outil qui ne sait pas afficher la zone
+// d'usage privé les avait silencieusement supprimés — la barre n'affichait
+// plus que « 40 % » et « 0 % » (constaté sur matériel le 2026-08-21). Tous
+// les codepoints ci-dessous sont couverts par Font Awesome 6 Free ET par
+// Cascadia Mono NF (paquets Fedora, donc disponibles hors ligne) —
+// vérifié avec `fc-list ":charset=XXXX"` sur le système installé.
 {
   "layer": "top",
   "position": "top",
@@ -12,7 +20,8 @@
 
   "niri/workspaces": {
     "format": "{icon}",
-    "format-icons": { "active": "", "default": "" }
+    // U+F192 dot-circle (actif), U+F111 circle (autres).
+    "format-icons": { "active": "\uf192", "default": "\uf111" }
   },
   "niri/window": {
     "max-length": 60,
@@ -26,31 +35,36 @@
   },
   "tray": { "icon-size": 16, "spacing": 8 },
   "bluetooth": {
-    "format": "",
+    // U+F293 bluetooth-b (Font Awesome 6 Brands / Nerd Font).
+    "format": "\uf293",
     "format-disabled": "",
-    "format-connected": " {num_connections}",
+    "format-connected": "\uf293 {num_connections}",
     "on-click": "alacritty -e bluetoothctl"
   },
   "network": {
-    "format-wifi": "  {signalStrength}%",
-    "format-ethernet": "",
-    "format-disconnected": "󰌙",
+    // U+F1EB wifi, U+F6FF ethernet, U+F127 chain-broken.
+    "format-wifi": "\uf1eb  {signalStrength}%",
+    "format-ethernet": "\uf6ff",
+    "format-disconnected": "\uf127",
     "tooltip-format": "{ifname} — {ipaddr}",
     "on-click": "alacritty -e nmtui"
   },
   "pulseaudio": {
+    // U+F028/F027/F026 volume-high/low/off, U+F6A9 volume-xmark.
     "format": "{icon} {volume}%",
-    "format-muted": " ",
-    "format-icons": { "default": ["", "", ""] },
+    "format-muted": "\uf6a9 ",
+    "format-icons": { "default": ["\uf026", "\uf027", "\uf028"] },
     "on-click": "pamixer -t"
   },
   "cpu": {
-    "format": " {usage}%",
+    // U+F2DB microchip.
+    "format": "\uf2db {usage}%",
     "interval": 5,
     "on-click": "alacritty -e btop"
   },
   "custom/theme": {
-    "format": "",
+    // U+F53F palette.
+    "format": "\uf53f",
     "tooltip": false,
     "on-click": "fedoriri-theme-set --next"
   }

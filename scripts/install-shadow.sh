@@ -83,6 +83,10 @@ fi
 # 2. Téléchargement (URL versionnée) + vérification sha512 base64.
 #    openssl et non xxd : xxd n'est pas garanti présent.
 # ---------------------------------------------------------------------------
+# L'AppImage (type 2) charge libfuse.so.2 : sans fuse-libs, « dlopen(): error
+# loading libfuse.so.2 » et rien ne se lance (matériel, 2026-08-21).
+rpm -q fuse-libs >/dev/null 2>&1 || run dnf install -y fuse-libs
+
 if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   WORK="$(mktemp -d)"
   trap 'rm -rf "$WORK"' EXIT

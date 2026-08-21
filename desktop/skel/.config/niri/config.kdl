@@ -71,6 +71,10 @@ environment {
 }
 
 // --- Démarrage de session ---------------------------------------------------
+// Tire graphical-session.target (exigé par xdg-desktop-portal) : voir
+// ~/.config/systemd/user/fedoriri-session.service. Lancé ici, APRÈS que niri
+// a importé WAYLAND_DISPLAY & co dans systemd --user.
+spawn-at-startup "systemctl" "--user" "start" "fedoriri-session.service"
 spawn-at-startup "waybar"
 spawn-at-startup "mako"
 // Fond d'écran du thème courant (symlink géré par fedoriri-theme-set).
@@ -108,12 +112,14 @@ window-rule {
 
 binds {
     // --- Aide ---------------------------------------------------------------
-    Mod+Shift+Slash { show-hotkey-overlay; }
+    // Mod+F1 et non Mod+Shift+Slash : sur le clavier suisse romand, « / » est
+    // déjà Shift+7 — la combinaison était intapable.
+    Mod+F1 { show-hotkey-overlay; }
 
     // --- Applications (calqué Omarchy) --------------------------------------
     Mod+Return { spawn "alacritty"; }
     Mod+Space  { spawn "fuzzel"; }
-    Mod+B      { spawn "firefox"; }
+    Mod+B      { spawn "brave-origin-stable"; }
     Mod+E      { spawn "nautilus"; }
     Mod+N      { spawn "alacritty" "-e" "nvim"; }
     Mod+T      { spawn "alacritty" "-e" "btop"; }

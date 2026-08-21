@@ -83,6 +83,10 @@ bluez
 # Le pilote VA-API AMD vient de RPM Fusion (mesa-va-drivers-freeworld),
 # installé au premier boot. libva-utils fournit vainfo pour le test.
 mesa-dri-drivers
+# AppImage Shadow : libfuse.so.2 (fuse3 seul ne suffit pas — constaté sur matériel).
+fuse-libs
+# Déballage du .deb officiel Claude Desktop (archive ar).
+bsdtar
 libva-utils
 
 # --- AppImage (Shadow) ------------------------------------------------------
@@ -108,10 +112,12 @@ jetbrains-mono-fonts
 google-noto-sans-fonts
 google-noto-color-emoji-fonts
 fontawesome-6-free-fonts
+# Police Nerd empaquetée par Fedora : icônes de waybar (zone d'usage privé).
+cascadia-mono-nf-fonts
 
 # --- Applications de base ---------------------------------------------------
 nautilus
-firefox
+# (navigateur : Brave Origin, dépôt officiel Brave au premier boot — install-brave.sh)
 
 # --- Outillage requis par les scripts fedoriri ------------------------------
 git-core

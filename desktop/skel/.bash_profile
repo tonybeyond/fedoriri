@@ -17,6 +17,7 @@ if [ -z "${WAYLAND_DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
     # un shell — plus jamais d'écran figé muet ni de boucle d'autologin.
     mkdir -p "$HOME/.local/share/niri"
     niri --session 2>&1 | tee "$HOME/.local/share/niri/session.log"
+    systemctl --user stop fedoriri-session.service 2>/dev/null || true
     echo ""
     echo "=== niri s'est arrêté. Journal : ~/.local/share/niri/session.log ==="
     echo "=== (dernières lignes ci-dessus ; shell de secours ci-dessous)    ==="

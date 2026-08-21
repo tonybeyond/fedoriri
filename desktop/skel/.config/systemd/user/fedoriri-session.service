@@ -1,0 +1,19 @@
+[Unit]
+Description=fedoriri : session graphique niri (tire graphical-session.target)
+# niri est lancé DIRECTEMENT dans la session de login (~/.bash_profile), sans
+# unité systemd user. Or graphical-session.target refuse tout démarrage
+# manuel (RefuseManualStart) et xdg-desktop-portal l'exige (Requisite=) :
+# sans cette unité, AUCUN portail ne démarre — pas de sélecteur de fichiers
+# ni de partage d'écran dans Brave, Shadow, Claude Desktop… (constaté sur
+# matériel le 2026-08-21 : « Dependency failed for xdg-desktop-portal »).
+# Démarrée par niri (spawn-at-startup, une fois l'environnement importé
+# dans systemd --user), arrêtée par ~/.bash_profile quand niri se termine.
+BindsTo=graphical-session.target
+Before=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true

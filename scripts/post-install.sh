@@ -104,6 +104,36 @@ if [ "$WITH_SHADOWUSB" -eq 1 ]; then
 fi
 
 # ---------------------------------------------------------------------------
+step "Brave Origin (dépôt officiel Brave, navigateur par défaut)"
+FEDORIRI_USER="$TARGET_USER" "$SCRIPT_DIR/install-brave.sh" "${DRY_FLAG[@]}"
+
+# ---------------------------------------------------------------------------
+step "Claude Desktop (paquet officiel Anthropic, déballé)"
+"$SCRIPT_DIR/install-claude-desktop.sh" "${DRY_FLAG[@]}"
+
+# ---------------------------------------------------------------------------
+step "trousseau GNOME « login » pour $TARGET_USER"
+# Sans trousseau, la première application libsecret (Claude Desktop, Brave…)
+# ouvre une invite gcr « créer un trousseau » et reste bloquée derrière.
+# L'autologin n'a pas de mot de passe à donner à pam_gnome_keyring : on crée
+# un trousseau par défaut NON chiffré (format texte [keyring] de
+# gnome-keyring) — le disque entier est déjà sous LUKS. Validé sur matériel.
+USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+KEYRINGS="$USER_HOME/.local/share/keyrings"
+if [ -n "$USER_HOME" ] && [ ! -e "$KEYRINGS/login.keyring" ]; then
+  run runuser -u "$TARGET_USER" -- mkdir -p "$KEYRINGS"
+  if [ "$DRY_RUN" -eq 0 ]; then
+    now="$(date +%s)"
+    printf '[keyring]\ndisplay-name=login\nctime=%s\nmtime=%s\nlock-on-idle=false\nlock-after=false\n' "$now" "$now" \
+      | runuser -u "$TARGET_USER" -- tee "$KEYRINGS/login.keyring" >/dev/null
+    printf 'login' | runuser -u "$TARGET_USER" -- tee "$KEYRINGS/default" >/dev/null
+    chmod 700 "$KEYRINGS"; chmod 600 "$KEYRINGS"/login.keyring "$KEYRINGS"/default
+  fi
+else
+  log "trousseau déjà présent, rien à faire"
+fi
+
+# ---------------------------------------------------------------------------
 step "thème par défaut pour $TARGET_USER"
 # Applique tokyo-night si l'utilisateur n'a pas encore de thème courant.
 USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
