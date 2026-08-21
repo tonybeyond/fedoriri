@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # remote-build.sh — orchestre le build de l'ISO sur la VM de build (Fedora 44), puis
 # l'envoie sur le serveur Proxmox. À lancer depuis n'importe quel poste ayant
-# un accès SSH au LXC (clef dédiée), typiquement le Mac de dev.
+# un accès SSH à la VM de build (clef dédiée), typiquement le Mac de dev.
 #
-# Flux : [poste] --ssh--> [LXC : git pull + build-iso.sh] --scp--> [Proxmox]
-# Les secrets du kickstart vivent UNIQUEMENT sur le LXC (posés une fois par
+# Flux : [poste] --ssh--> [VM de build : git pull + build-iso.sh] --scp--> [Proxmox]
+# Les secrets du kickstart vivent UNIQUEMENT sur la VM de build (posés une fois par
 # iso/set-secrets.sh, jamais commités) : le git pull ne les touche pas tant
 # que les commits ne modifient pas iso/includes/ — dans ce cas le script
 # s'arrête avec les instructions plutôt que de perdre ou d'écraser quoi
@@ -48,13 +48,13 @@ SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "$BUILD_HOST")
 log "connexion à $BUILD_HOST…"
 "${SSH[@]}" true || die "SSH inaccessible ($BUILD_HOST avec $SSH_KEY)"
 
-# Mise à jour du dépôt sur le LXC. Les secrets vivent dans des fichiers
+# Mise à jour du dépôt sur la VM de build. Les secrets vivent dans des fichiers
 # suivis mais modifiés localement (iso/includes/10-base.ks et
 # 20-partitioning.ks) : on ne bloque que si un commit entrant touche UN DE
 # CES fichiers-là précisément — un commit sur d'autres fichiers d'includes
 # (ex. 30-packages.ks) fusionne sans risque à côté de modifications locales
 # non recouvrantes.
-log "git pull sur le LXC…"
+log "git pull sur la VM de build…"
 "${SSH[@]}" "
   set -euo pipefail
   cd $REPO_DIR
@@ -71,25 +71,24 @@ log "git pull sur le LXC…"
   rc=$?
   if [ "$rc" -eq 42 ]; then
     die "des commits entrants modifient des fichiers portant vos changements locaux (secrets).
-Sur le LXC : notez vos secrets, git checkout -- <fichiers>, git pull, ./iso/set-secrets.sh, puis relancez."
+Sur la VM de build : notez vos secrets, git checkout -- <fichiers>, git pull, ./iso/set-secrets.sh, puis relancez."
   fi
-  die "git pull a échoué sur le LXC (code $rc)"
+  die "git pull a échoué sur la VM de build (code $rc)"
 }
 
-log "build de l'ISO sur le LXC (le pool en cache rend les rebuilds rapides)…"
+log "build de l'ISO sur la VM de build (le pool en cache rend les rebuilds rapides)…"
 "${SSH[@]}" "cd $REPO_DIR && ./iso/build-iso.sh $SKIP_POOL_FLAG"
 
 SHA_LINE="$("${SSH[@]}" "cat $REPO_DIR/iso/build/fedoriri-44-x86_64.iso.sha256" 2>/dev/null || true)"
 log "build terminé. sha256 : ${SHA_LINE%% *}"
 
 if [ "$SKIP_UPLOAD" -eq 1 ]; then
-  log "(--no-upload) L'ISO est sur le LXC : $REPO_DIR/iso/build/fedoriri-44-x86_64.iso"
+  log "(--no-upload) L'ISO est sur la VM de build : $REPO_DIR/iso/build/fedoriri-44-x86_64.iso"
   exit 0
 fi
 
-# L'accès SSH LXC → Proxmox a été volontairement révoqué (2026-08-20) : la
-# récupération de l'ISO est désormais TIRÉE par l'opérateur, pas poussée.
-# On tente quand même le scp si un accès existe, sinon on guide.
+# Envoi vers Proxmox : la clef de la VM de build est autorisée sur l'hôte PVE
+# (LAN direct). Si cet accès est retiré, on guide la récupération manuelle.
 log "tentative d'envoi vers $PROXMOX_DEST…"
 if "${SSH[@]}" "scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
   $REPO_DIR/iso/build/fedoriri-44-x86_64.iso \
