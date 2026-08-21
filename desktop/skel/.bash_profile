@@ -5,7 +5,19 @@
 [ -f ~/.bashrc ] && . ~/.bashrc
 
 if [ -z "${WAYLAND_DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    # niri-session est fourni par le paquet niri : session systemd complète
-    # (portails, dbus-update-activation-environment, etc.).
-    exec niri-session
+    # niri est lancé DIRECTEMENT dans la session de login (pas via
+    # niri-session) : niri-session délègue à une unité systemd --user
+    # (niri.service, Type=notify) qui vit HORS de la session logind — sur ce
+    # montage autologin, le service ne notifiait jamais « prêt » et la
+    # session bouclait en silence (constaté sur VM ET matériel réel).
+    # `niri --session` hérite ici de la session logind du login : prise de
+    # seat directe, comportement identique, zéro dépendance aux unités user.
+    #
+    # Pas de exec : si niri s'arrête, on VOIT son erreur et on retombe sur
+    # un shell — plus jamais d'écran figé muet ni de boucle d'autologin.
+    mkdir -p "$HOME/.local/share/niri"
+    niri --session 2>&1 | tee "$HOME/.local/share/niri/session.log"
+    echo ""
+    echo "=== niri s'est arrêté. Journal : ~/.local/share/niri/session.log ==="
+    echo "=== (dernières lignes ci-dessus ; shell de secours ci-dessous)    ==="
 fi
