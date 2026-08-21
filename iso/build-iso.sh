@@ -226,7 +226,14 @@ prepare_kickstart() {
   if [ "$DRY_RUN" -eq 0 ]; then
     grep -q 'fedoriri-ignoredisk' "$FLAT_KS" \
       || die "le %pre de détection du disque manque dans le kickstart aplati"
+    grep -q 'fedoriri-source' "$FLAT_KS" \
+      || die "le %pre de localisation du pool manque dans le kickstart aplati"
     printf '\n%%include /tmp/fedoriri-ignoredisk.ks\n' >> "$FLAT_KS"
+    # Source d'installation localisée par le %pre (harddrive --partition=…) :
+    # remplace l'ancien inst.repo=hd:LABEL=… de la cmdline, qui échouait sur
+    # clé USB (label dupliqué sda/sda1 → montage impossible → installation
+    # interactive, constaté sur le matériel réel).
+    printf '%%include /tmp/fedoriri-source.ks\n' >> "$FLAT_KS"
     # Garde-fou : sans commande bootloader dans les sources, ksflatten émet
     # le défaut pykickstart « --location=none » = PAS de bootloader installé
     # (système non amorçable). La ligne explicite de 10-base.ks doit gagner.
@@ -240,7 +247,7 @@ prepare_kickstart() {
 # 5. Payload + mkksiso.
 # ---------------------------------------------------------------------------
 assemble_iso() {
-  local stage="$BUILD_DIR/stage/fedoriri" label
+  local stage="$BUILD_DIR/stage/fedoriri"
   mkdir -p "$stage/payload"
   run rsync -a --delete \
       --exclude '.git' --exclude 'iso/build' \
@@ -248,12 +255,8 @@ assemble_iso() {
       "$REPO_ROOT/configs" "$REPO_ROOT/packaging" \
       "$stage/payload/"
 
-  # Étiquette de volume de l'ISO amont : nécessaire pour inst.repo=hd:LABEL=…
-  # (mkksiso conserve l'étiquette d'origine).
-  label="$(xorriso -indev "$UPSTREAM_ISO" -pvd_info 2>/dev/null \
-           | awk -F': ' '/Volume Id/ {print $2; exit}' | tr -d ' ')"
-  [ -n "$label" ] || die "impossible de lire l'étiquette de volume de l'ISO amont"
-  log "étiquette de volume : $label"
+# (l'étiquette de volume n'est plus utilisée : la source d'installation est
+# localisée à l'exécution par le %pre — voir includes/20-partitioning.ks.)
 
   # mkksiso refuse d'écraser une sortie existante : on purge un éventuel
   # artefact d'un build précédent (c'est notre fichier, pas une donnée).
@@ -272,11 +275,13 @@ patch mtools de l'image EFI embarquée (voir patch_embedded_efiboot)."
     efi_flag=(--skip-mkefiboot)
   fi
 
-  # inst.repo pointe sur le pool local de l'ISO → installation sans réseau.
+  # Le pool local est embarqué dans l'ISO (--add) ; la source d'installation
+  # est déclarée par le kickstart (harddrive, généré par le %pre), pas par
+  # inst.repo sur la cmdline — qui primerait sur le kickstart et échoue sur
+  # clé USB (label dupliqué).
   local mkksiso_args=("${efi_flag[@]}"
                       --ks "$FLAT_KS"
                       --add "$BUILD_DIR/stage/fedoriri"
-                      --cmdline "inst.repo=hd:LABEL=${label}:/fedoriri/repo"
                       "$UPSTREAM_ISO" "$OUT_ISO")
   if [ "$(uname -m)" = "$ARCH" ]; then
     run mkksiso "${mkksiso_args[@]}"
