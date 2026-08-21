@@ -162,3 +162,14 @@ d'exécution sur le fichier. Corrigé dans 40-post.ks : `--no-preserve=context`
 /usr/share/fedoriri, /usr/local/bin. Sur un système déjà installé avec une
 ISO antérieure : `sudo restorecon -RF /opt/fedoriri /usr/share/fedoriri
 /etc/skel && sudo systemctl restart fedoriri-first-boot.service`.
+
+## Installateur Citrix (setupwfc) piloté par invites (2026-08-21)
+
+setupwfc n'a pas de mode silencieux et l'ordre de ses questions change selon la
+version : en 26.04 il demande le répertoire AVANT toute confirmation, puis
+USB, EPA, App Protection, FIDO2. La séquence de réponses figée de
+l'incrément 1 installait dans un répertoire nommé « y » puis abandonnait
+(« Invalid Entry » ×3) — constaté sur matériel réel. scripts/lib/citrix-drive.py
+(pty, bibliothèque standard) répond désormais à chaque invite reconnue par
+son texte et ABANDONNE explicitement sur une invite inconnue ; validé sur
+matériel : Citrix 26.04.0.105 installé, EPA/App Protection/FIDO2 refusés.

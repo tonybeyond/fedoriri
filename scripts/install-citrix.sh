@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
 done
 
 require_root
-require_cmd curl tar sha256sum dnf
+require_cmd curl tar sha256sum dnf python3
 
 # ---------------------------------------------------------------------------
 # Prérequis bibliothèques.
@@ -122,14 +122,17 @@ if [ "$DRY_RUN" -eq 0 ]; then
   if [ "$INTERACTIVE" -eq 1 ]; then
     ( cd "$WORK" && ./setupwfc )
   else
-    # setupwfc n'a pas de mode silencieux documenté : on pilote ses invites
-    # par stdin. Séquence pour les versions 24.x–26.x observées :
-    #   1  → installer ;  y → accepter la licence ;  (vide) → ICAROOT défaut ;
-    #   y  → confirmer ;  y → intégration bureau (.desktop, mimetypes) ;
-    #   n  → App Protection (incompatible Wayland/xwayland-satellite) ;
-    #   3  → quitter le menu.
-    # Si Citrix change ses invites, relancer avec --interactive.
-    if ! ( cd "$WORK" && printf '1\ny\n\ny\ny\nn\n3\n' | ./setupwfc ); then
+    # setupwfc n'a pas de mode silencieux documenté, et l'ordre de ses
+    # questions change d'une version à l'autre (26.04 : répertoire AVANT toute
+    # confirmation, puis USB, EPA, App Protection, FIDO2…). Une séquence de
+    # réponses figée installait dans un répertoire nommé « y » puis
+    # abandonnait (matériel réel, 2026-08-21). lib/citrix-drive.py répond donc
+    # à chaque invite RECONNUE par son texte (pty, bibliothèque standard) :
+    #   installer → répertoire par défaut → confirmer → intégrations bureau et
+    #   USB : oui → EPA, App Protection (incompatible Wayland), FIDO2 : non →
+    #   quitter le menu. Invite inconnue = abandon explicite, jamais de
+    #   réponse au hasard. Si Citrix change encore : --interactive.
+    if ! python3 "$SCRIPT_DIR/lib/citrix-drive.py" "$WORK/setupwfc"; then
       die "setupwfc a échoué en mode piloté — relancez avec --interactive"
     fi
   fi
